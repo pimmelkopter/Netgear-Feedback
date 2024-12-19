@@ -1,0 +1,11 @@
+[Unit]
+Description=Switch Monitor für VLANs und LEDs
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/project-root/src/main.py
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target

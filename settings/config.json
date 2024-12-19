@@ -1,0 +1,10 @@
+{
+    "fixed_ip": "10.18.254.3",
+    "scan_base": "10.18.254",
+    "scan_range_start": 10,
+    "scan_range_end": 255,
+    "led_count": 48,
+    "update_interval": 15,
+    "default_vlan_color": "#0000FF"
+  }
+  
