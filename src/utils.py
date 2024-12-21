@@ -33,3 +33,42 @@ def parse_port_led_mapping(mapping_str):
         leds = [int(x) for x in leds_part.split(',')]
         result[port_id] = leds
     return result
+
+def parse_vlan_color_map(mapping_str):
+    """
+    Erwartet z.B. '100:255,0,0;200:0,255,0'
+    Gibt ein Dict zurück, z.B. {100: (255,0,0), 200: (0,255,0)}
+    """
+    result = {}
+    if not mapping_str:
+        return result
+    pairs = mapping_str.split(';')
+    for p in pairs:
+        # p z.B. '100:255,0,0'
+        if ':' not in p:
+            continue
+        vlan_str, rgb_str = p.split(':', 1)
+        vlan_id = int(vlan_str.strip())
+        rgb_parts = [c.strip() for c in rgb_str.split(',')]
+        if len(rgb_parts) == 3:
+            try:
+                r, g, b = map(int, rgb_parts)
+                result[vlan_id] = (r, g, b)
+            except ValueError:
+                pass
+    return result
+
+def parse_rgb_string(rgb_str):
+    """
+    Erwartet z.B. '255,0,0'
+    Gibt ein Tuple (255,0,0) zurück.
+    """
+    parts = [c.strip() for c in rgb_str.split(',')]
+    if len(parts) == 3:
+        try:
+            r, g, b = map(int, parts)
+            return (r, g, b)
+        except ValueError:
+            pass
+    # Fallback auf Blau:
+    return (0, 0, 255)

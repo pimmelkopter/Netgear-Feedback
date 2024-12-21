@@ -5,9 +5,10 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git
+sudo chmod +x "${PROJECT_DIR}/update.sh"
 
 # 1) Python venv erstellen
-if [ ! -d "${PROJECT_DIR}/venv"]; then
+if [ ! -d "${PROJECT_DIR}/venv" ]; then
     echo "Erstelle Python-venv im Projektverzeichnis.."
     python3 -m venv "${PROJECT_DIR}/venv"
 fi

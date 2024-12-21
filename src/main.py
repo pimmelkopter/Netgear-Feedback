@@ -3,7 +3,11 @@ import requests
 import sys
 import subprocess
 from rpi_ws281x import PixelStrip, Color, ws
-from utils import load_config, load_secrets, parse_port_led_mapping
+from .utils import load_config, load_secrets, parse_port_led_mapping, parse_vlan_color_map, parse_rgb_string
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 def ping_ip(ip):
     """ Sendet einen einzelnen Ping, um zu prüfen, ob IP erreichbar ist. """
@@ -16,8 +20,6 @@ def scan_for_switch(subnet_prefix="10.18.254", start=1, end=254):
     for i in range(start, end+1):
         candidate = f"{subnet_prefix}.{i}"
         if ping_ip(candidate):
-            # Hier ggf. noch Test per GET /login oder HEAD
-            # Für Demo: sobald ping erfolgreich ist, "gefunden"
             return candidate
     return None
 
@@ -29,6 +31,17 @@ def main():
     ip_scan = config.get('ip_scan', True)
     switch_ip = config.get('switch_ip', '192.168.0.1')  # Fallback
     base_url_suffix = config.get('base_url_suffix', '/api/v1')
+    led_count = config.get('led_count', 48)
+    led_pin = config.get('led_pin', 18)
+    led_brightness = config.get('led_brightness', 255)  # Neu
+    default_vlan_color_str = config.get('default_vlan_color', '0,0,255')  # Neu
+    vlan_color_map_str = config.get('vlan_color_map', '')  # Neu
+    update_interval = config.get('update_interval', 15)
+
+    # Parset die neuen Farb-Mappings
+    vlan_color_map = parse_vlan_color_map(vlan_color_map_str)
+    default_vlan_color = parse_rgb_string(default_vlan_color_str)
+
 
     # Falls ip_scan==true => versuche Switch im Netz zu finden,
     # ansonsten benutze switch_ip direkt.
@@ -50,11 +63,6 @@ def main():
     username = secrets.get('username', 'admin')
     password = secrets.get('password', 'admin')
 
-    # LED-Parameter
-    led_count = config.get('led_count', 48)
-    led_pin = config.get('led_pin', 18)
-    update_interval = config.get('update_interval', 15)
-
     # Setup PixelStrip
     strip = PixelStrip(
         led_count,
@@ -62,7 +70,7 @@ def main():
         800000, # Standardfreq WS2812
         10,     # DMA
         False,  # invert
-        255,    # brightness
+        led_brightness,    # brightness
         0,      # channel
         ws.WS2812_STRIP
     )
@@ -86,10 +94,10 @@ def main():
     if auto_detect_ports:
         try:
             headers = {"Authorization": f"Bearer {token}"}
-            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
+            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=True)
             resp_dev.raise_for_status()
             dev_info = resp_dev.json().get("device_info", {})
-            port_count = dev_info.get("numOfPorts", 24)
+            port_count = int(dev_info.get("numOfPorts", 24))
             print(f"Switch meldet {port_count} Ports.")
         except Exception as e:
             print(f"Konnte device_info nicht abrufen. Nutze fallback: {port_count} Ports. Fehler: {e}")
@@ -111,18 +119,17 @@ def main():
             for port_id in range(1, port_count + 1):
                 # VLAN abrufen
                 try:
-                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=False)
+                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=True)
                     r.raise_for_status()
                     port_data = r.json().get("switchPortConfig", {})
                     vlan_id = port_data.get("portVlanId", 1)
 
                     # Bspw. VLAN-Farben festlegen
-                    if vlan_id == 100:
-                        color = Color(255, 0, 0)  # Rot
-                    elif vlan_id == 200:
-                        color = Color(0, 255, 0)  # Grün
+                    if vlan_id in vlan_color_map:
+                        r_val, g_val, b_val = vlan_color_map[vlan_id]
                     else:
-                        color = Color(0, 0, 255)  # Blau (oder aus config? etc.)
+                        r_val, g_val, b_val = default_vlan_color
+                    color = Color(r_val, g_val, b_val)
 
                     # LEDs für diesen Port setzen
                     leds_for_this_port = port_led_map.get(port_id, [])

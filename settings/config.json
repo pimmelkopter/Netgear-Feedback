@@ -1,7 +1,7 @@
 {
     "dhcp": true,
     "ip_scan": false,
-    "switch_ip": "https://c8a21383-bf5e-41f3-b11e-46b83dbbcb45.mock.pstmn.io",
+    "switch_ip": "c8a21383-bf5e-41f3-b11e-46b83dbbcb45.mock.pstmn.io",
     "base_url_suffix": "/api/v1",
     "fixed_ip": "10.18.254.3",
     "fixed_gw": "10.18.254.1",
@@ -14,6 +14,8 @@
     "scan_range_start": 10,
     "scan_range_end": 255,
     "led_count": 48,
+    "led_brightness": 128,
     "update_interval": 15,
-    "default_vlan_color": "#0000FF"
+    "default_vlan_color": "0,0,255",
+    "vlan_color_map": "100:255,0,0;200:0,255,0;1:255,255,0"
   }
