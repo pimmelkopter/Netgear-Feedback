@@ -1,19 +1,35 @@
-import json
 import os
+import json
+import sys
 
-def load_json(path):
-    with open(path, 'r', encoding='utf-8') as f:
+# Bestimmt den absoluten Pfad zum project-root (eine Ebene über diesem Script).
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(CURRENT_DIR)
+
+CONFIG_PATH = os.path.join(PROJECT_ROOT, 'settings', 'config.json')
+SECRETS_PATH = os.path.join(PROJECT_ROOT, 'settings', 'secrets.json')
+
+def load_config():
+    with open(CONFIG_PATH, 'r') as f:
         return json.load(f)
 
-def get_config():
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'settings', 'config.json')
-    return load_json(config_path)
+def load_secrets():
+    with open(SECRETS_PATH, 'r') as f:
+        return json.load(f)
 
-def get_secrets():
-    secrets_path = os.path.join(os.path.dirname(__file__), '..', 'settings', 'secrets.json')
-    return load_json(secrets_path)
-
-def hex_to_rgb(hex_str):
-    # Erwartet ein String wie "#RRGGBB"
-    hex_str = hex_str.lstrip('#')
-    return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+def parse_port_led_mapping(mapping_str):
+    """
+    Erwartet z.B. '1:1,2;2:3,4;3:7,8'
+    Gibt ein Dict zurück, z.B. {1: [1,2], 2: [3,4], 3: [7,8]}
+    """
+    result = {}
+    if not mapping_str:
+        return result
+    port_mappings = mapping_str.split(';')
+    for pm in port_mappings:
+        # pm z.B. '1:1,2'
+        port_part, leds_part = pm.split(':')
+        port_id = int(port_part)
+        leds = [int(x) for x in leds_part.split(',')]
+        result[port_id] = leds
+    return result

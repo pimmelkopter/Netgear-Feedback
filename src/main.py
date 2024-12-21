@@ -1,59 +1,149 @@
 import time
-import threading
-from .utils import get_config, get_secrets
-from .network_scan import find_first_switch
-from .api_client import APIClient
-from .led_control import LEDController
-from .gui import GUI
+import requests
+import sys
+import subprocess
+from rpi_ws281x import PixelStrip, Color, ws
+from utils import load_config, load_secrets, parse_port_led_mapping
+
+def ping_ip(ip):
+    """ Sendet einen einzelnen Ping, um zu prüfen, ob IP erreichbar ist. """
+    # -c 1 => 1 Paket; -W 1 => 1 Sekunde warten
+    ret = subprocess.call(['ping', '-c', '1', '-W', '1', ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return (ret == 0)
+
+def scan_for_switch(subnet_prefix="10.18.254", start=1, end=254):
+    """ Scannt die IPs im angegebenen Bereich, um den ersten erreichbaren Switch zu finden. """
+    for i in range(start, end+1):
+        candidate = f"{subnet_prefix}.{i}"
+        if ping_ip(candidate):
+            # Hier ggf. noch Test per GET /login oder HEAD
+            # Für Demo: sobald ping erfolgreich ist, "gefunden"
+            return candidate
+    return None
 
 def main():
-    config = get_config()
-    secrets = get_secrets()
+    config = load_config()
+    secrets = load_secrets()
 
-    # Netzwerk-Scan
-    base_ip = find_first_switch(config['scan_base'], config['scan_range_start'], config['scan_range_end'])
-    if not base_ip:
-        print("Kein Switch gefunden!")
-        return
+    dhcp = config.get('dhcp', True)
+    ip_scan = config.get('ip_scan', True)
+    switch_ip = config.get('switch_ip', '192.168.0.1')  # Fallback
+    base_url_suffix = config.get('base_url_suffix', '/api/v1')
 
-    base_url = f"https://{base_ip}:8443/api/v1"
-    print("Gefundener Switch:", base_url)
+    # Falls ip_scan==true => versuche Switch im Netz zu finden,
+    # ansonsten benutze switch_ip direkt.
+    if ip_scan:
+        print("Scanne Netzwerk nach erstem erreichbarem Switch...")
+        # Beispiel: Vorbelegen mit 10.18.254.* oder aus fixed_ip extrahieren
+        # Hier hartkodiert als Bsp. anwendbar:
+        scanned_ip = scan_for_switch(subnet_prefix="10.18.254", start=10, end=255)
+        if scanned_ip:
+            print(f"Switch gefunden: {scanned_ip}")
+            switch_ip = scanned_ip
+        else:
+            print("Kein Switch gefunden, breche ab.")
+            sys.exit(1)
+    else:
+        print(f"Nutze konfiguriertes Switch-IP: {switch_ip}")
 
-    # API-Client
-    api = APIClient(base_url, secrets['username'], secrets['password'])
-    api.login()
+    base_url = f"https://{switch_ip}{base_url_suffix}"
+    username = secrets.get('username', 'admin')
+    password = secrets.get('password', 'admin')
 
-    # LED-Controller
-    led_ctrl = LEDController(led_count=config['led_count'])
-
-    # GUI (optional)
-    gui = GUI()
-    # GUI könnte in eigenem Thread laufen, hier nur exemplarisch
-    # gui_thread = threading.Thread(target=gui.run)
-    # gui_thread.start()
-
-    # Hauptloop für periodische Updates
+    # LED-Parameter
+    led_count = config.get('led_count', 48)
+    led_pin = config.get('led_pin', 18)
     update_interval = config.get('update_interval', 15)
-    while True:
-        # VLAN Zuordnungen abrufen
-        # Angenommen der Switch hat z.B. 24 Ports
-        # Hier könnte man anhand einer erfragten Switch-Konfiguration die Anzahl Ports ermitteln.
-        for port_id in range(1, config['led_count']+1):
-            try:
-                port_info = api.get_port_vlan_info(port_id)
-                vlan_id = port_info['switchPortConfig']['portVlanId']
-                vlan_data = api.get_vlan_info(vlan_id)
-                vlan_name = vlan_data['switchConfigVlan']['name']
-                # Farbe pro VLAN zuweisen (hier noch statisch)
-                # Später könnte man in config.json VLAN-Farben mappen, oder über GUI anpassen.
-                vlan_color = config.get('default_vlan_color', '#0000FF')
-                led_ctrl.set_port_vlans(port_id, [vlan_color])
-            except:
-                # Falls Port nicht existiert oder nicht abgefragt werden kann
-                pass
 
-        led_ctrl.update_leds()
-        time.sleep(update_interval)
+    # Setup PixelStrip
+    strip = PixelStrip(
+        led_count,
+        led_pin,
+        800000, # Standardfreq WS2812
+        10,     # DMA
+        False,  # invert
+        255,    # brightness
+        0,      # channel
+        ws.WS2812_STRIP
+    )
+    strip.begin()
+
+    # Login
+    token = None
+    try:
+        resp = requests.post(f"{base_url}/login", json={"username": username, "password": password}, verify=False)
+        resp.raise_for_status()
+        token = resp.json()['login']['token']
+    except Exception as e:
+        print(f"Login fehlgeschlagen: {e}")
+        sys.exit(1)
+
+    print("Login erfolgreich, Token abgerufen.")
+
+    # Auto-Detect Ports?
+    auto_detect_ports = config.get('auto_detect_ports', True)
+    port_count = config.get('fixed_port_count', 24)
+    if auto_detect_ports:
+        try:
+            headers = {"Authorization": f"Bearer {token}"}
+            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
+            resp_dev.raise_for_status()
+            dev_info = resp_dev.json().get("device_info", {})
+            port_count = dev_info.get("numOfPorts", 24)
+            print(f"Switch meldet {port_count} Ports.")
+        except Exception as e:
+            print(f"Konnte device_info nicht abrufen. Nutze fallback: {port_count} Ports. Fehler: {e}")
+
+    # Mappings: port -> [ledIndex,...]
+    port_led_map = parse_port_led_mapping(config.get('port_led_mapping', ''))
+
+    # Cleanup-Funktion, um LEDs auszuschalten bei Ctrl+C
+    def cleanup_and_exit():
+        print("\nBeende Programm, schalte LEDs aus.")
+        for i in range(led_count):
+            strip.setPixelColor(i, 0)
+        strip.show()
+        sys.exit(0)
+
+    try:
+        while True:
+            headers = {"Authorization": f"Bearer {token}"}
+            for port_id in range(1, port_count + 1):
+                # VLAN abrufen
+                try:
+                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=False)
+                    r.raise_for_status()
+                    port_data = r.json().get("switchPortConfig", {})
+                    vlan_id = port_data.get("portVlanId", 1)
+
+                    # Bspw. VLAN-Farben festlegen
+                    if vlan_id == 100:
+                        color = Color(255, 0, 0)  # Rot
+                    elif vlan_id == 200:
+                        color = Color(0, 255, 0)  # Grün
+                    else:
+                        color = Color(0, 0, 255)  # Blau (oder aus config? etc.)
+
+                    # LEDs für diesen Port setzen
+                    leds_for_this_port = port_led_map.get(port_id, [])
+                    if not leds_for_this_port:
+                        # Wenn kein Mapping hinterlegt, z. B. default: 2 LEDs pro Port
+                        # => LED-Paar an (port_id-1)*2 und (port_id-1)*2+1
+                        led_index_base = (port_id - 1) * 2
+                        leds_for_this_port = [led_index_base, led_index_base + 1]
+
+                    for led_idx in leds_for_this_port:
+                        if 0 <= led_idx < led_count:
+                            strip.setPixelColor(led_idx, color)
+
+                except Exception as ex:
+                    print(f"Fehler bei Port {port_id}: {ex}")
+
+            strip.show()
+            time.sleep(update_interval)
+
+    except KeyboardInterrupt:
+        cleanup_and_exit()
 
 if __name__ == "__main__":
     main()
