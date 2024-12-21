@@ -1,3 +1,23 @@
+Der ganze Text hierunter ist nur chat gpt, Räume ich noch auf. 
+ToDos
+✅ Script läuft und gibt die Farbe der VLAN-IDs des Mockservers korrekt auf LED band
+- mit echtem Switch testen (echte Daten) 
+- interface testen für vlan Änderungen
+/ gui über Bildschirm + button interface
+/ gui über touchscreen
+/ gui über TFT und buttons
+/ gui über Hotspot + webinterface
+
+
+Falls alles eefolgreich
+- portieren auf pi zero
+- portieren auf esp32
+- evtl gui mit Push/turn - encoder
+- evtl button-leds
+
+
+
+
 # Switch Monitor für VLANs und LEDs (Proof of Concept)
 
 Dieses Projekt ist ein Proof of Concept, um VLAN-Zuordnungen auf einem Switch per API abzurufen und deren Status auf einem WS2812b LED-Streifen anzuzeigen. Zusätzlich kann eine einfache GUI oder ein Button-Interface integriert werden, um VLAN-Farben zuzuweisen.
