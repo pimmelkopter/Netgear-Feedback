@@ -6,6 +6,8 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git
 sudo chmod +x "${PROJECT_DIR}/update.sh"
+sudo chmod +x "${PROJECT_DIR}/run.sh"
+sudo cp "${PROJECT_DIR}/settings/secrets_initial.json" "${PROJECT_DIR}/settings/secrets.json"
 
 # 1) Python venv erstellen
 if [ ! -d "${PROJECT_DIR}/venv" ]; then
@@ -48,3 +50,4 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 echo "Setup complete."
+echo "please configure settings/config.json and settings/secrets.json"

@@ -15,7 +15,7 @@
     "scan_range_end": 255,
     "led_count": 48,
     "led_brightness": 128,
-    "update_interval": 15,
+    "update_interval": 5,
     "default_vlan_color": "0,0,255",
-    "vlan_color_map": "100:255,0,0;200:0,255,0;1:255,255,0"
+    "vlan_color_map": "100:255,0,0;200:0,255,0;1:255,0,255"
   }
