@@ -1,5 +1,8 @@
 Der ganze Text hierunter ist nur chat gpt, Räume ich noch auf. 
 ToDos
+
+- in update ändern auf /etc/dhcp/dhc.conf
+
 ✅ Script läuft und gibt die Farbe der VLAN-IDs des Mockservers korrekt auf LED band
 - mit echtem Switch testen (echte Daten) 
 - interface testen für vlan Änderungen
