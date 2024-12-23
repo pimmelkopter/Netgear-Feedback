@@ -34,4 +34,4 @@ if [ -f "$CONFIG_FILE" ]; then
 else
   echo "config.json nicht gefunden unter $CONFIG_FILE!"
 fi
-echo -e "\033[1;32m✔ update.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen.\033[0m"
+echo -e "\033[1;32m ✔  update.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen.\033[0m"

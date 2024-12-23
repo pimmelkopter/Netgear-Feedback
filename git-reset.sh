@@ -1,10 +1,9 @@
-git stash push -- git-reset.sh
+cp git-reset.sh git-reset.bak
 echo "dhcp nicht vergessen!"
 git reset --hard origin/raspberrypi
-#git pull
 sudo chmod +x update.sh
 sudo chmod +x run.sh
 sudo chmod +x setup.sh
-git stash apply
+mv git-reset.bak git-reset.sh
 sudo chmod +x git-reset.sh
 ./update.sh
