@@ -1,6 +1,6 @@
 import os
 import json
-import sys
+#import sys TODO
 
 # Bestimmt den absoluten Pfad zum project-root (eine Ebene über diesem Script).
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))

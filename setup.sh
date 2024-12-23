@@ -4,7 +4,7 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-pip python3-venv git
+sudo apt install -y python3 python3-pip python3-venv git jq
 sudo chmod +x "${PROJECT_DIR}/update.sh"
 sudo chmod +x "${PROJECT_DIR}/run.sh"
 sudo cp "${PROJECT_DIR}/settings/secrets_initial.json" "${PROJECT_DIR}/settings/secrets.json"
@@ -22,32 +22,39 @@ pip install -r "${PROJECT_DIR}/requirements.txt"
 
 # 3) IP-Konfiguration aus config.json lesen
 CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
+WIRED_CONN="Wired connection 1"
 
 if [ -f "$CONFIG_FILE" ]; then
-  # Verwenden von jq, um Werte aus config.json zu lesen
-  # Falls 'jq' noch nicht installiert ist:
-  sudo apt-get install -y jq
-
   DHCP=$(jq -r '.dhcp' "$CONFIG_FILE")
   FIXED_IP=$(jq -r '.fixed_ip' "$CONFIG_FILE")
   FIXED_GW=$(jq -r '.fixed_gw' "$CONFIG_FILE")
   DNS_SERVER=$(jq -r '.dns_server' "$CONFIG_FILE")
 
   if [ "$DHCP" = "false" ]; then
-    echo "Starte Konfiguration der statischen IP-Adresse..."
-    # /etc/dhcpcd.conf anpassen
-    sudo sed -i '/^interface eth0/,$d' /etc/dhcpcd.conf  # Alte Konfiguration entfernen
-    {
-      echo "interface eth0"
-      echo "static ip_address=$FIXED_IP"
-      echo "static routers=$FIXED_GW"
-      echo "static domain_name_servers=$DNS_SERVER"
-    } | sudo tee -a /etc/dhcpcd.conf
-    echo "Feste IP wurde eingerichtet. Bitte Pi neustarten, damit es wirksam wird."
+    echo "Starte Konfiguration der statischen IP-Adresse über NetworkManager..."
+    # Verbindung auf 'manual' stellen
+    sudo nmcli connection modify "$WIRED_CONN" \
+        ipv4.method manual \
+        ipv4.addresses "$FIXED_IP" \
+        ipv4.gateway "$FIXED_GW" \
+        ipv4.dns "$DNS_SERVER" \
+        ipv6.method ignore
+
+    sudo nmcli connection up "$WIRED_CONN"
+    echo "Feste IP wurde eingerichtet. ($FIXED_IP via $WIRED_CONN)"
   else
-    echo "DHCP konfiguriert, keine statische IP."
+    echo "Stelle Verbindung auf DHCP um..."
+    sudo nmcli connection modify "$WIRED_CONN" \
+        ipv4.method auto \
+        ipv6.method ignore
+
+    sudo nmcli connection up "$WIRED_CONN"
   fi
+else
+  echo "config.json nicht gefunden unter $CONFIG_FILE!"
 fi
+echo "setup.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen."
 
 echo "Setup complete."
 echo "please configure settings/config.json and settings/secrets.json"
+echo "use sudo raspi-config and setup wifi country to use wireless interface"
