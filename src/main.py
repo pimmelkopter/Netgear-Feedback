@@ -108,7 +108,7 @@ def main():
     if auto_detect_ports:
         try:
             headers = {"Authorization": f"Bearer {token}"}
-            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=True)
+            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
             resp_dev.raise_for_status()
             dev_info = resp_dev.json().get("device_info", {})
             port_count = int(dev_info.get("numOfPorts", 24))
@@ -133,7 +133,7 @@ def main():
             for port_id in range(1, port_count + 1):
                 # VLAN abrufen
                 try:
-                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=True)
+                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=False)
                     r.raise_for_status()
                     port_data = r.json().get("switchPortConfig", {})
                     vlan_id = port_data.get("portVlanId", 1)
