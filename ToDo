@@ -1,0 +1,21 @@
+Script läuft mit Mockserver
+TODO - Todos updaten
+TODO - Wifi erstellen beim Boot - SSH aktivieren auf Wifi
+TODO - Netzwerksettings checken - dhc.conf? IP-Adressen übernahme klappt?
+TODO - Pingscan testen (Subnetz definieren)
+TODO - Mit echtem Switch testen
+TODO - GUI Webinterface
+    Anzeige der VLANs und Settings
+    Änderung der VLANs
+    Save/ Save&Reboot
+    Passwortschutz
+    Wifi bis nächstem Boot deaktivieren
+TODO - POE Status integrieren
+
+TODO - Portierung auf Pi Zero
+TODO - Portierung auf ESp32
+
+Ideen:
+TODO - Load Default CFG des Switchs?
+OTA Update des Skripts?
+GUI mit LED-Buttons + TFT + Push/Turn-Encoder

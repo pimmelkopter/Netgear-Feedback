@@ -1,4 +1,4 @@
-Der ganze Text hierunter ist nur chat gpt, Räume ich noch auf. 
+
 ToDos
 
 - in update ändern auf /etc/dhcp/dhc.conf
@@ -19,7 +19,7 @@ Falls alles eefolgreich
 - evtl button-leds
 
 
-
+Der ganze Text hierunter ist nur chat gpt, Räume ich noch auf. 
 
 # Switch Monitor für VLANs und LEDs (Proof of Concept)
 
