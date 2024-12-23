@@ -14,7 +14,8 @@ if [ -f "$CONFIG_FILE" ]; then
   if [ "$DHCP" = "false" ]; then
     echo "Starte Konfiguration der statischen IP-Adresse über NetworkManager..."
     # Verbindung auf 'manual' stellen
-    sudo nmcli connection modify "$WIRED_CONN" \
+    sudo nmcli connection delete "$WIRED_CONN"
+    sudo nmcli connection add type ethernet ifname eth0 con-name "$WIRED_CONN" \
         ipv4.method manual \
         ipv4.addresses "$FIXED_IP" \
         ipv4.gateway "$FIXED_GW" \
@@ -25,10 +26,9 @@ if [ -f "$CONFIG_FILE" ]; then
     echo "Feste IP wurde eingerichtet. ($FIXED_IP via $WIRED_CONN)"
   else
     echo "Stelle Verbindung auf DHCP um... - wenn die Nachricht länger als 30s bleibt drücke Strg+C"
-    sudo nmcli connection modify "$WIRED_CONN" \
-        ipv4.method auto \
-        ipv6.method ignore
-
+    sudo nmcli connection delete "$WIRED_CONN"
+    sudo nmcli connection add type ethernet ifname eth0 con-name "$WIRED_CONN" ipv4.method auto ipv6.method ignore
+    
     sudo nmcli connection up "$WIRED_CONN"
   fi
 else

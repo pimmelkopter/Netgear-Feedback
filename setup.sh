@@ -20,40 +20,7 @@ source "${PROJECT_DIR}/venv/bin/activate"
 pip install --upgrade pip
 pip install -r "${PROJECT_DIR}/requirements.txt"
 
-# 3) IP-Konfiguration aus config.json lesen
-CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
-WIRED_CONN="Wired connection 1"
-
-if [ -f "$CONFIG_FILE" ]; then
-  DHCP=$(jq -r '.dhcp' "$CONFIG_FILE")
-  FIXED_IP=$(jq -r '.fixed_ip' "$CONFIG_FILE")
-  FIXED_GW=$(jq -r '.fixed_gw' "$CONFIG_FILE")
-  DNS_SERVER=$(jq -r '.dns_server' "$CONFIG_FILE")
-
-  if [ "$DHCP" = "false" ]; then
-    echo "Starte Konfiguration der statischen IP-Adresse über NetworkManager..."
-    # Verbindung auf 'manual' stellen
-    sudo nmcli connection modify "$WIRED_CONN" \
-        ipv4.method manual \
-        ipv4.addresses "$FIXED_IP" \
-        ipv4.gateway "$FIXED_GW" \
-        ipv4.dns "$DNS_SERVER" \
-        ipv6.method ignore
-
-    sudo nmcli connection up "$WIRED_CONN"
-    echo "Feste IP wurde eingerichtet. ($FIXED_IP via $WIRED_CONN)"
-  else
-    echo "Stelle Verbindung auf DHCP um..."
-    sudo nmcli connection modify "$WIRED_CONN" \
-        ipv4.method auto \
-        ipv6.method ignore
-
-    sudo nmcli connection up "$WIRED_CONN"
-  fi
-else
-  echo "config.json nicht gefunden unter $CONFIG_FILE!"
-fi
-echo "setup.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen."
+./update.sh
 
 echo "Setup complete."
 echo "please configure settings/config.json and settings/secrets.json"
