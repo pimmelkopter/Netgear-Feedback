@@ -32,3 +32,5 @@ TODO IP-Scan Fortschritt anzeigen
 Notizen
 base url ohne https
 fixed IP mit /24
+
+sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
