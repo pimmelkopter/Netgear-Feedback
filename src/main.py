@@ -5,6 +5,9 @@ import sys
 import subprocess
 from rpi_ws281x import PixelStrip, Color, ws
 from .utils import load_config, load_secrets, parse_port_led_mapping, parse_vlan_color_map, parse_rgb_string
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def ping_ip(ip):
     """ Sendet einen einzelnen Ping, um zu prüfen, ob IP erreichbar ist. """
@@ -93,7 +96,6 @@ def main():
     token = None
     try:
         resp = requests.post(f"{base_url}/login", json=login_data, headers=headers, verify=False)
-        print(resp.status_code, resp.text)
         resp.raise_for_status()
         token = resp.json()['login']['token']
     except Exception as e:

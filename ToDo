@@ -3,7 +3,7 @@ TODO
 1.✅ Festen Wifi Hotspot erstellen, der einen SSH Zugriff ermöglicht, auch wenn man für die Switch-Erkennung in einem anderen Subnetz ist. Also zum Beispiel "Test-AP-RPI4" pw "netgear12345678" mit IP Adresse 192.168.0.1 und aktiviertem DHCP und SSH
 2.✅ Netzwerksettings überarbeiten in Config.json und setup.sh und update.sh damit sie den neuen Netzwerkmanager übernehmen (siehe Infos unten)
 3. ✅Pingtest mit echtem Switch testen - Überprüfung über Wifi und SSH ob Switch im Subnetz gefunden wird
-- LOGIN API!
+- ✅ LOGIN API!
 4. Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie gedacht
 5. GUI Webinterface mit Random Wifi machen wir erst wenn der Rest erledigt ist!
     Wifi random - ohne shared sondern ipv4 manual
