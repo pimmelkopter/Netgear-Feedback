@@ -19,8 +19,9 @@ def scan_for_switch(subnet_prefix="10.18.254", start=1, end=254):
     """ Scannt die IPs im angegebenen Bereich, um den ersten erreichbaren Switch zu finden. """
     for i in range(start, end+1):
         candidate = f"{subnet_prefix}.{i}"
-        print(f"scanning range {subnet_prefix} - candidate {i} from {end}")
+        print(f"\rScanning:{subnet_prefix}.{i} candidate {i} of {end}", end="")
         if ping_ip(candidate):
+            print(f"\nSwitch found at: {candidate}")
             return candidate
     return None
 
@@ -79,10 +80,28 @@ def main():
     )
     strip.begin()
 
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    # Login Definition
+    login_data = {
+        "login": {
+            "username": username,
+            "password": password
+        }
+    }
+
+    resp = requests.post(
+        f"{base_url}/login",
+        json=login_data,
+        headers=headers,
+        verify=False
+    )
     # Login
     token = None
     try:
-        resp = requests.post(f"{base_url}/login", json={"username": username, "password": password}, verify=False)
+        resp = requests.post(f"{base_url}/login", json=login_data, headers=headers, verify=False)
         print(resp.status_code, resp.text)
         resp.raise_for_status()
         token = resp.json()['login']['token']
