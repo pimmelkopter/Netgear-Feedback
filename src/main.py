@@ -1,13 +1,44 @@
 import time
+import ssl
 import requests
+from requests.adapters import HTTPAdapter
 import sys
 import subprocess
 from rpi_ws281x import PixelStrip, Color, ws
 from .utils import load_config, load_secrets, parse_port_led_mapping, parse_vlan_color_map, parse_rgb_string
 import urllib3
+from urllib3 import poolmanager
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+class LegacyRenegotiationAdapter(HTTPAdapter):
+    def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+        ctx = ssl.create_default_context()
+        # Zertifikatsprüfung ausschalten (Gefahr!) oder eigenes CA-Bundle nutzen
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
+        # Unsichere Legacy-Renegotiation wieder erlauben:
+        # Je nach Python 3.11-Version kann es sein, dass man OP_NO_RENEGOTIATION unsetten muss.
+        # Der Wert 0x40000 entspricht ssl.OP_NO_RENEGOTIATION in vielen Builds.
+        # In neueren Python-Versionen kann man ggf. ssl.OP_NO_RENEGOTIATION direkt ansprechen.
+        OP_NO_RENEG = 0x40000  
+        ctx.options &= ~OP_NO_RENEG  # Deaktiviert "NO_RENEGOTIATION"
+
+        # Optional: schwächere Cipher aktivieren, falls nötig
+        # ctx.set_ciphers("DEFAULT:@SECLEVEL=1")
+
+        self.poolmanager = poolmanager.PoolManager(
+            num_pools=connections,
+            maxsize=maxsize,
+            block=block,
+            ssl_context=ctx,
+            **kwargs
+        )
+
+# Danach eine Session erstellen, die diesen Adapter nutzt:
+session = requests.Session()
+session.mount("https://", LegacyRenegotiationAdapter())
 
 def ping_ip(ip):
     """ Sendet einen einzelnen Ping, um zu prüfen, ob IP erreichbar ist. """
