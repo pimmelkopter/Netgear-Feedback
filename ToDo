@@ -20,6 +20,14 @@ Ideen:
 TODO - Load Default CFG des Switchs?
 OTA Update des Skripts?
 GUI mit LED-Buttons + TFT + Push/Turn-Encoder
-IP Liste, die zuerst abgefragt wird in config.json - eine audiluma config.json mit gitignore
+TODO IP Liste, die zuerst abgefragt wird in config.json - eine audiluma config.json mit gitignore
 
 -pi4.local pi raspberry
+
+CHECKEN:
+TODO sudo systemctl restart NetworkManager / sudo reboot nach Network-Changes?
+TODO IP-Scan Fortschritt anzeigen
+
+Notizen
+base url ohne https
+fixed IP mit /24

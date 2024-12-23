@@ -19,6 +19,7 @@ def scan_for_switch(subnet_prefix="10.18.254", start=1, end=254):
     """ Scannt die IPs im angegebenen Bereich, um den ersten erreichbaren Switch zu finden. """
     for i in range(start, end+1):
         candidate = f"{subnet_prefix}.{i}"
+        print(f"scanning range {subnet_prefix} - candidate {i} from {end}")
         if ping_ip(candidate):
             return candidate
     return None
@@ -27,7 +28,6 @@ def main():
     config = load_config()
     secrets = load_secrets()
 
-    dhcp = config.get('dhcp', True)
     ip_scan = config.get('ip_scan', True)
     switch_ip = config.get('switch_ip', '192.168.0.1')  # Fallback
     base_url_suffix = config.get('base_url_suffix', '/api/v1')
@@ -37,6 +37,9 @@ def main():
     default_vlan_color_str = config.get('default_vlan_color', '0,0,255')  # Neu
     vlan_color_map_str = config.get('vlan_color_map', '')  # Neu
     update_interval = config.get('update_interval', 15)
+    start = config.get('scan_range_start', 10)
+    end = config.get('scan_range_end', 255)
+    subnet_prefix = config.get('scan_base', '10.18.254')
 
     # Parset die neuen Farb-Mappings
     vlan_color_map = parse_vlan_color_map(vlan_color_map_str)
@@ -49,7 +52,7 @@ def main():
         print("Scanne Netzwerk nach erstem erreichbarem Switch...")
         # Beispiel: Vorbelegen mit 10.18.254.* oder aus fixed_ip extrahieren
         # Hier hartkodiert als Bsp. anwendbar:
-        scanned_ip = scan_for_switch(subnet_prefix="10.18.254", start=10, end=255)
+        scanned_ip = scan_for_switch(subnet_prefix, start, end)
         if scanned_ip:
             print(f"Switch gefunden: {scanned_ip}")
             switch_ip = scanned_ip
@@ -80,6 +83,7 @@ def main():
     token = None
     try:
         resp = requests.post(f"{base_url}/login", json={"username": username, "password": password}, verify=False)
+        print(resp.status_code, resp.text)
         resp.raise_for_status()
         token = resp.json()['login']['token']
     except Exception as e:

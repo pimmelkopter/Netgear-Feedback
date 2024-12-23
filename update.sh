@@ -3,8 +3,14 @@ set -e
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
+DHCP=$(jq -r '.dhcp' "$CONFIG_FILE")
+FIXED_IP=$(jq -r '.fixed_ip' "$CONFIG_FILE")
+FIXED_GW=$(jq -r '.fixed_gw' "$CONFIG_FILE")
+DNS_SERVER=$(jq -r '.dns_server' "$CONFIG_FILE")
+WIRED_CONN="Wired connection 1"
 
 # Wir lesen erneut aus config.json
+if [ -f "$CONFIG_FILE" ]; then
   if [ "$DHCP" = "false" ]; then
     echo "Starte Konfiguration der statischen IP-Adresse über NetworkManager..."
     # Verbindung auf 'manual' stellen
@@ -18,7 +24,7 @@ CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
     sudo nmcli connection up "$WIRED_CONN"
     echo "Feste IP wurde eingerichtet. ($FIXED_IP via $WIRED_CONN)"
   else
-    echo "Stelle Verbindung auf DHCP um..."
+    echo "Stelle Verbindung auf DHCP um... - wenn die Nachricht länger als 30s bleibt drücke Strg+C"
     sudo nmcli connection modify "$WIRED_CONN" \
         ipv4.method auto \
         ipv6.method ignore
@@ -28,4 +34,4 @@ CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
 else
   echo "config.json nicht gefunden unter $CONFIG_FILE!"
 fi
-echo "setup.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen."
+echo "update.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen."
