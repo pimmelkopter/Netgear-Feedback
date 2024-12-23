@@ -1,11 +1,10 @@
-[Unit]
-Description=Switch Monitor für VLANs und LEDs
-After=network.target
-
 [Service]
-ExecStart=/usr/bin/python3 /path/to/project-root/src/main.py
-Restart=always
-User=pi
+Type=simple
+WorkingDirectory=/home/pi/Netgear-Feedback
+
+Environment="OPENSSL_CONF=/home/pi/Netgear-Feedback/settings/openssl.cnf"
+ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target

@@ -19,6 +19,9 @@ fi
 source "${PROJECT_DIR}/venv/bin/activate"
 pip install --upgrade pip
 pip install -r "${PROJECT_DIR}/requirements.txt"
+sudo cp switch_monitor.service /etc/systemd/system/switch_monitor.service
+# TODO sudo systemctl enable switch_monitor
+# TODO sudo systemctl start switch_monitor
 
 ./update.sh
 
