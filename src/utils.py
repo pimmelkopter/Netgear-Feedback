@@ -78,19 +78,20 @@ def generate_odd_even_linear(
 def generate_odd_even_even_reversed(
     port_count, leds_per_port,
     gap_start=0, gap_end=0,
-    block_size=0, gap_after_block=0
+    block_size=0, gap_after_block=0,
+    gap_between_rows=0,
 ):
     """Odd asc, then even desc + Gaps."""
     result = {}
     odd_ports = [p for p in range(1, port_count+1) if p % 2 == 1]
     even_ports = [p for p in range(1, port_count+1) if p % 2 == 0]
     even_ports.reverse()
-    ordered_ports = odd_ports + even_ports
+    base_idx = 0
+    base_idx += gap_start  # Lücke vor erstem Port
 
-    base_idx = gap_start
+    # ---------- ODD-BLOCK ----------
     port_counter_in_block = 0
-
-    for p in ordered_ports:
+    for p in odd_ports:
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
             port_counter_in_block = 0
@@ -101,7 +102,25 @@ def generate_odd_even_even_reversed(
         base_idx += leds_per_port
         port_counter_in_block += 1
 
+    # ---------- GAP ZWISCHEN ODD/EVENT ----------
+    base_idx += gap_between_rows
+
+    # ---------- EVEN-BLOCK (reversed) ----------
+    port_counter_in_block = 0
+    for p in even_ports:
+        if block_size > 0 and port_counter_in_block == block_size:
+            base_idx += gap_after_block
+            port_counter_in_block = 0
+
+        leds = list(range(base_idx, base_idx + leds_per_port))
+        result[p] = leds
+
+        base_idx += leds_per_port
+        port_counter_in_block += 1
+
+    # ---------- GAP END ----------
     base_idx += gap_end
+
     return result
 
 def generate_odd_even_odd_reversed(
@@ -176,6 +195,7 @@ def parse_port_led_mapping(config):
     # Neue Gap-Parameter:
     gap_start = config.get('led_gap_start', 0)
     gap_end = config.get('led_gap_end', 0)
+    gap_between_rows = config.get('led_gap_between_rows', 0)
     block_size = config.get('port_block_size', 0)
     gap_after_block = config.get('led_gap_after_block', 0)
 
@@ -226,7 +246,8 @@ def parse_port_led_mapping(config):
         return generate_odd_even_reversed(
             port_count, leds_per_port,
             gap_start, gap_end,
-            block_size, gap_after_block
+            block_size, gap_after_block,
+            gap_between_rows
         )
 
     # Fallback auf linear
