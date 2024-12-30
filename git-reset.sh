@@ -29,8 +29,7 @@ git reset --hard origin/raspberrypi
 mv git-reset.bak git-reset.sh
 
 sudo chmod +x update.sh
-sudo chmod +x run.sh
-sudo chmod +x setup.sh
+sudo chmod +x setup/setup.sh
 sudo chmod +x git-reset.sh
 
 echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"

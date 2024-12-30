@@ -82,7 +82,7 @@ def get_port_status_color(speed, poe_active, blink_on):
     # If speed=0 => everything is black anyway.
     if poe_active and base_color != (0,0,0):
         # blink_on => base_color, else => Blue
-        return base_color if blink_on else (0, 0, 255)
+        return base_color if blink_on else (0, 0,255)
     else:
         # Not PoE or no link => just base_color (solid, no blink)
         return base_color
@@ -163,9 +163,9 @@ def main():
     # Attempt login
     token = None
     try:
-        resp = requests.post(f"{base_url}/login", json=login_data, headers=headers, verify=False)
-        resp.raise_for_status()
-        token = resp.json()['login']['token']
+        r_login = requests.post(f"{base_url}/login", json=login_data, headers=headers, verify=False)
+        r_login.raise_for_status()
+        token = r_login.json()['login']['token']
     except Exception as e:
         print(f"Login failed: {e}")
         sys.exit(1)
@@ -175,12 +175,13 @@ def main():
     # Auto-detect number of ports
     auto_detect_ports = config.get('auto_detect_ports', True)
     port_count = config.get('fixed_port_count', 24)
-    if auto_detect_ports:
-        try:
+
+    try:
+        if auto_detect_ports:
             headers["Authorization"] = f"Bearer {token}"
-            resp_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
-            resp_dev.raise_for_status()
-            dev_info = resp_dev.json().get("device_info", {})
+            r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
+            r_dev.raise_for_status()
+            dev_info = r_dev.json().get("device_info", {})
             port_count = int(dev_info.get("numOfPorts", port_count))
             print(f"Switch reports {port_count} ports.")
             # Show port count in blue for 1s
@@ -188,11 +189,25 @@ def main():
                 strip.setPixelColor(i, Color(0,0,255) if i < port_count else 0)
             strip.show()
             time.sleep(1.0)
-        except Exception as e:
-            print(f"Could not retrieve device_info. Using fallback {port_count} ports. Error: {e}")
+    except Exception as e:
+        print(f"Could not retrieve device_info. Using fallback {port_count} ports. Error: {e}")
 
     # Determine LED mapping for ports
     port_led_map = parse_port_led_mapping(config)
+
+    # Prepare a cache for each port, so we don't spam requests in LED-loop
+    port_info_cache = {
+        port_id: {
+            "vlan_color": (0,0,0),  # (r,g,b) from VLAN
+            "speed": 0,
+            "poe_active": False
+        } for port_id in range(1, port_count+1)
+    }
+    
+    # Clear all LEDs once, so only mapped ports are set later
+    for i in range(led_count):
+        strip.setPixelColor(i, 0)
+    strip.show()
 
     def cleanup_and_exit():
         """Turns off all LEDs and exits."""
@@ -202,84 +217,122 @@ def main():
         strip.show()
         sys.exit(0)
 
-    # Clear all LEDs once, so only mapped ports are set later
-    for i in range(led_count):
-        strip.setPixelColor(i, 0)
-    strip.show()
+    # Single-thread with two intervals:
+    #  - HTTP: every 'update_interval' seconds
+    #  - LED:  every 0.1s => 10Hz
+    next_http_time = time.time()
+    next_led_time = time.time()
+    HTTP_INTERVAL = float(update_interval)
+    LED_INTERVAL  = 0.1
+
+    # For single-LED ports + port_stats_on_led_2 => cycle-based approach
+    blink_cycle = 0
 
     try:
         while True:
-            # Periodically update VLAN colors for each port
-            headers["Authorization"] = f"Bearer {token}"
-            blink_on = (int(time.time() * 8) % 2 == 0)
-            for port_id in range(1, port_count + 1):
-                try:
-                    r = requests.get(
-                        f"{base_url}/swcfg_port?portid={port_id}",
-                        headers=headers,
-                        verify=False,
-                        timeout=2
-                    )
-                    r.raise_for_status()
-                    port_data = r.json().get("switchPortConfig", {})
-                    vlan_id = port_data.get("portVlanId", 1)
+            now = time.time()
 
-                    # Determine port color
-                    if vlan_id in vlan_color_map:
-                        (r_val, g_val, b_val) = vlan_color_map[vlan_id]
-                    else:
-                        (r_val, g_val, b_val) = default_vlan_color
+            # 1) HTTP Update (every update_interval)
+            if now >= next_http_time:
+                next_http_time = now + HTTP_INTERVAL
 
-                    vlan_color = Color(r_val, g_val, b_val)
+                # Periodically update VLAN colors for each port
+                headers["Authorization"] = f"Bearer {token}"
+                for port_id in range(1, port_count + 1):
+                    try:
+                        r_vlan = requests.get(
+                            f"{base_url}/swcfg_port?portid={port_id}",
+                            headers=headers, verify=False, timeout=2
+                        )
+                        r_vlan.raise_for_status()
+                        port_cfg = r_vlan.json().get("switchPortConfig", {})
+                        vlan_id = port_cfg.get("portVlanId", 1)
 
-                    # Update assigned LED(s) for this port
+                        # Determine port color
+                        if vlan_id in vlan_color_map:
+                            vcol = vlan_color_map[vlan_id]
+                        else:
+                            vcol = default_vlan_color
+                        port_info_cache[port_id]["vlan_color"] = vcol
+                    except:
+                        port_info_cache[port_id]["vlan_color"] = default_vlan_color
+
+                    # Stats (if port_stats_on_led_2)
+                    if port_stats_on_led_2:
+                        try:
+                            r_stat = requests.get(
+                                f"{base_url}/sw_portstats?portid={port_id}",
+                                headers=headers, verify=False, timeout=2
+                            )
+                            r_stat.raise_for_status()
+                            stats_data = r_stat.json().get("switchStatsPort", {})
+                            speed = stats_data.get("speed", 0)
+                            poe_code = stats_data.get("poeStatus", 0)
+                            poe_active = (poe_code > 0)
+
+                            port_info_cache[port_id]["speed"] = speed
+                            port_info_cache[port_id]["poe_active"] = poe_active
+                        except:
+                            port_info_cache[port_id]["speed"] = 0
+                            port_info_cache[port_id]["poe_active"] = False
+
+            # 2) LED Update (every 0.1s => 10Hz)
+            if now >= next_led_time:
+                next_led_time = now + LED_INTERVAL
+                blink_cycle += 1
+                # blink_on => e.g. toggles at 5Hz if we want
+                blink_on = (blink_cycle % 2 == 0)
+
+                for port_id in range(1, port_count+1):
                     leds_for_port = port_led_map.get(port_id, [])
                     if not leds_for_port:
                         # skip_undefined
                         continue
 
-                    # Set VLAN color on the *first* LED of this port
-                    if len(leds_for_port) >= 1:
+                    # VLAN color from cache
+                    (vr, vg, vb) = port_info_cache[port_id]["vlan_color"]
+
+                    if len(leds_for_port) >= 2 and port_stats_on_led_2:
+                        # 2+ LEDs => LED #1 = VLAN, LED #2 = speed/poe
+                        led_idx_1 = leds_for_port[0]
+                        led_idx_2 = leds_for_port[1]
+                        if 0 <= led_idx_1 < led_count:
+                            strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
+
+                        # Speed/PoE
+                        speed = port_info_cache[port_id]["speed"]
+                        poe   = port_info_cache[port_id]["poe_active"]
+                        (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                        if 0 <= led_idx_2 < led_count:
+                            strip.setPixelColor(led_idx_2, Color(sr, sg, sb))
+
+                    else:
+                        # If only 1 LED but port_stats_on_led_2 is True => 
+                        # We do a 16-step cycle. First 10 steps => VLAN color,
+                        # next 6 steps => blink logic for speed/poe.
+                        # If port_stats_on_led_2 is false => just show VLAN.
+
                         led_idx_1 = leds_for_port[0]
                         if 0 <= led_idx_1 < led_count:
-                            strip.setPixelColor(led_idx_1, vlan_color)
+                            if port_stats_on_led_2 and len(leds_for_port) == 1:
+                                cycle_mod = blink_cycle % 16
+                                if cycle_mod < 10:
+                                    # show VLAN
+                                    strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
+                                else:
+                                    # show port-stats blink
+                                    speed = port_info_cache[port_id]["speed"]
+                                    poe   = port_info_cache[port_id]["poe_active"]
+                                    (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                                    strip.setPixelColor(led_idx_1, Color(sr, sg, sb))
+                            else:
+                                # Normal case => just VLAN
+                                strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
 
-                    # 2) Port-Stats Info (NEU)
-                    # Only if config says so & we have at least 2 LEDs:
-                    if port_stats_on_led_2 and len(leds_for_port) >= 2:
-                        r_stat = requests.get(
-                            f"{base_url}/sw_portstats?portid={port_id}",
-                            headers=headers,
-                            verify=False,
-                            timeout=2
-                        )
-                        r_stat.raise_for_status()
-                        stats_data = r_stat.json().get("switchStatsPort", {})
+                strip.show()
 
-                        ## speed=5 => gigabit, speed=4 => 100 Mbit, etc.
-                        speed = stats_data.get("speed", 0)
-                        poe_code = stats_data.get("poeStatus", 0)
-                        poe_active = (poe_code > 0)  # or interpret the codes more finely
-
-                        # get the color for second LED
-                        (r_stat_val, g_stat_val, b_stat_val) = get_port_status_color(
-                            speed=speed,
-                            poe_active=poe_active,
-                            blink_on=blink_on   # from the global loop
-                        )
-                        status_color = Color(r_stat_val, g_stat_val, b_stat_val)
-
-                        # set LED #2
-                        led_idx_2 = leds_for_port[1]
-                        if 0 <= led_idx_2 < led_count:
-                            strip.setPixelColor(led_idx_2, status_color)
-
-
-                except Exception as ex:
-                    print(f"Error on port {port_id}: {ex}")
-
-            strip.show()
-            time.sleep(update_interval)
+            # tiny sleep to avoid busy loop
+            time.sleep(0.01)
 
     except KeyboardInterrupt:
         cleanup_and_exit()

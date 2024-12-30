@@ -1,9 +1,20 @@
 ✅ - Aufräumen
     - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
-TODO - POE Status integrieren
-TODO - Link status
+
+TODO while true schleife mit untershciedlichem interval für leds und api abfragen
+TODO port_status true umbenennen
+TODO !! (r_val, g_val...) in vcol umbenennen? und vlan_color->port_info_cache
+TODO OBB
 TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
     Namen werden auch angezeigt.
+
+TODO echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
+TODO blink aktuell nur mit Update intervall
+TODO - POE Status integrieren
+TODO - Link status
+
+TODO - mehr in journal schreiben oder python info und echo print
+
 
 OOB ja viel praktischer
   "oob": false,
@@ -25,6 +36,9 @@ TODO load cfg file - großer Vorteil für ESP32 wäre das ja immer nur eine fest
 
 TODO - Portierung auf Pi Zero
 TODO - Portierung auf ESP32
+    - erst mit einer LED
+    Dann LAN
+    dann api test
     - ESP32 main.py Generator aus einer config.json?
     - OTA Update für ESP32?
 
@@ -40,7 +54,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Port Stats" -m "schnellerer blink?"
+git commit -a -m "Split main Loop" -m "Main Loop hat jetzt ein Timing für API Requests und eins für LED Aktualisierung"
 
 
 ERLEDIGT:
