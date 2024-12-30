@@ -21,19 +21,21 @@ def load_secrets():
 def generate_linear_mapping(
     port_count, leds_per_port,
     gap_start=0, gap_end=0,
-    block_size=0, gap_after_block=0
+    block_size=0, gap_after_block=0,
+    gap_between_rows=0
 ):
     """
     Port 1 -> [base_idx..(base_idx+leds_per_port-1)] aufsteigend
     + gap_start am Anfang
     + nach block_size Ports => gap_after_block
     + gap_end nach letztem Port
+    gap_between_rows wird hier ignoriert (keine 2. Reihe)
     """
     result = {}
     base_idx = gap_start
     port_counter_in_block = 0
 
-    for p in range(1, port_count+1):
+    for p in range(1, port_count + 1):
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
             port_counter_in_block = 0
@@ -50,18 +52,38 @@ def generate_linear_mapping(
 def generate_odd_even_linear(
     port_count, leds_per_port,
     gap_start=0, gap_end=0,
-    block_size=0, gap_after_block=0
+    block_size=0, gap_after_block=0,
+    gap_between_rows=0
 ):
-    """Erst ungerade Ports aufsteigend, dann gerade Ports aufsteigend + Gaps."""
+    """
+    Odd asc, then Even asc, plus optional block-lücken.
+    gap_between_rows => Lücke zwischen Odd-Block und Even-Block
+    """
     result = {}
     odd_ports = [p for p in range(1, port_count+1) if p % 2 == 1]
     even_ports = [p for p in range(1, port_count+1) if p % 2 == 0]
-    ordered_ports = odd_ports + even_ports
 
     base_idx = gap_start
-    port_counter_in_block = 0
 
-    for p in ordered_ports:
+    # ---------- ODD-BLOCK ----------
+    port_counter_in_block = 0
+    for idx, p in enumerate(odd_ports):
+        if block_size > 0 and port_counter_in_block == block_size:
+            base_idx += gap_after_block
+            port_counter_in_block = 0
+
+        leds = list(range(base_idx, base_idx + leds_per_port))
+        result[p] = leds
+
+        base_idx += leds_per_port
+        port_counter_in_block += 1
+
+    # ---------- GAP_BETWEEN_ROWS ----------
+    base_idx += gap_between_rows
+
+    # ---------- EVEN-BLOCK ----------
+    port_counter_in_block = 0
+    for p in even_ports:
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
             port_counter_in_block = 0
@@ -82,18 +104,17 @@ def generate_odd_even_even_reversed(
     gap_between_rows=0
 ):
     """
-    Odd asc, then even desc + Gaps.
-    Nach dem Odd-Block: gap_between_rows
+    Odd asc, then Even desc + Gaps.
     """
     result = {}
     odd_ports = [p for p in range(1, port_count+1) if p % 2 == 1]
     even_ports = [p for p in range(1, port_count+1) if p % 2 == 0]
     even_ports.reverse()
 
-    # ----- ODD-BLOCK -----
     base_idx = gap_start
-    port_counter_in_block = 0
 
+    # ---------- ODD-BLOCK ----------
+    port_counter_in_block = 0
     for p in odd_ports:
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
@@ -101,14 +122,13 @@ def generate_odd_even_even_reversed(
 
         leds = list(range(base_idx, base_idx + leds_per_port))
         result[p] = leds
-
         base_idx += leds_per_port
         port_counter_in_block += 1
 
-    # ----- GAP ZWISCHEN ROWS -----
+    # ---------- GAP_BETWEEN_ROWS ----------
     base_idx += gap_between_rows
 
-    # ----- EVEN-BLOCK (reversed) -----
+    # ---------- EVEN-BLOCK (reversed) ----------
     port_counter_in_block = 0
     for p in even_ports:
         if block_size > 0 and port_counter_in_block == block_size:
@@ -117,37 +137,53 @@ def generate_odd_even_even_reversed(
 
         leds = list(range(base_idx, base_idx + leds_per_port))
         result[p] = leds
-
         base_idx += leds_per_port
         port_counter_in_block += 1
 
-    # ----- GAP_END am Schluss -----
+    # ---------- GAP END ----------
     base_idx += gap_end
     return result
 
 def generate_odd_even_odd_reversed(
     port_count, leds_per_port,
     gap_start=0, gap_end=0,
-    block_size=0, gap_after_block=0
+    block_size=0, gap_after_block=0,
+    gap_between_rows=0
 ):
-    """Odd desc, then even asc + Gaps."""
+    """
+    Odd desc, then Even asc + Gaps.
+    """
     result = {}
     odd_ports = [p for p in range(1, port_count+1) if p % 2 == 1]
     odd_ports.reverse()
     even_ports = [p for p in range(1, port_count+1) if p % 2 == 0]
-    ordered_ports = odd_ports + even_ports
 
     base_idx = gap_start
-    port_counter_in_block = 0
 
-    for p in ordered_ports:
+    # ---------- ODD-BLOCK ----------
+    port_counter_in_block = 0
+    for p in odd_ports:
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
             port_counter_in_block = 0
 
         leds = list(range(base_idx, base_idx + leds_per_port))
         result[p] = leds
+        base_idx += leds_per_port
+        port_counter_in_block += 1
 
+    # ---------- GAP_BETWEEN_ROWS ----------
+    base_idx += gap_between_rows
+
+    # ---------- EVEN-BLOCK (asc) ----------
+    port_counter_in_block = 0
+    for p in even_ports:
+        if block_size > 0 and port_counter_in_block == block_size:
+            base_idx += gap_after_block
+            port_counter_in_block = 0
+
+        leds = list(range(base_idx, base_idx + leds_per_port))
+        result[p] = leds
         base_idx += leds_per_port
         port_counter_in_block += 1
 
@@ -160,17 +196,19 @@ def generate_odd_even_reversed(
     block_size=0, gap_after_block=0,
     gap_between_rows=0
 ):
-    """Erst ungerade absteigend, dann gerade absteigend + Gaps + gap_between_rows."""
+    """
+    Erst ungerade absteigend, dann gerade absteigend + Gaps + gap_between_rows.
+    """
     result = {}
     odd_ports = [p for p in range(1, port_count+1) if p % 2 == 1]
     odd_ports.reverse()
     even_ports = [p for p in range(1, port_count+1) if p % 2 == 0]
     even_ports.reverse()
 
-    # ----- ODD-BLOCK -----
     base_idx = gap_start
-    port_counter_in_block = 0
 
+    # ---------- ODD-BLOCK ----------
+    port_counter_in_block = 0
     for p in odd_ports:
         if block_size > 0 and port_counter_in_block == block_size:
             base_idx += gap_after_block
@@ -178,14 +216,13 @@ def generate_odd_even_reversed(
 
         leds = list(range(base_idx, base_idx + leds_per_port))
         result[p] = leds
-
         base_idx += leds_per_port
         port_counter_in_block += 1
 
-    # gap zwischen odd/even
+    # ---------- GAP_BETWEEN_ROWS ----------
     base_idx += gap_between_rows
 
-    # ----- EVEN-BLOCK -----
+    # ---------- EVEN-BLOCK ----------
     port_counter_in_block = 0
     for p in even_ports:
         if block_size > 0 and port_counter_in_block == block_size:
@@ -194,7 +231,6 @@ def generate_odd_even_reversed(
 
         leds = list(range(base_idx, base_idx + leds_per_port))
         result[p] = leds
-
         base_idx += leds_per_port
         port_counter_in_block += 1
 
@@ -212,10 +248,9 @@ def parse_port_led_mapping(config):
     mode = config.get('port_mapping_mode', 'linear')
     leds_per_port = config.get('leds_per_port', 2)
 
-    # Neue Gap-Parameter:
     gap_start = config.get('led_gap_start', 0)
     gap_end = config.get('led_gap_end', 0)
-    gap_between_rows = config.get('led_gap_between_rows', 0)  # NEU
+    gap_between_rows = config.get('led_gap_between_rows', 0)
     block_size = config.get('port_block_size', 0)
     gap_after_block = config.get('led_gap_after_block', 0)
 
@@ -237,7 +272,7 @@ def parse_port_led_mapping(config):
                 pass
         return result
 
-    # Automatisch, je nach mode:
+    # Automatisch
     if mode == 'linear':
         return generate_linear_mapping(
             port_count, leds_per_port,
@@ -251,7 +286,6 @@ def parse_port_led_mapping(config):
             block_size, gap_after_block
         )
     elif mode == 'odd_even-even_reversed':
-        # Pass gap_between_rows an die Funktion
         return generate_odd_even_even_reversed(
             port_count, leds_per_port,
             gap_start, gap_end,
@@ -262,7 +296,8 @@ def parse_port_led_mapping(config):
         return generate_odd_even_odd_reversed(
             port_count, leds_per_port,
             gap_start, gap_end,
-            block_size, gap_after_block
+            block_size, gap_after_block,
+            gap_between_rows
         )
     elif mode == 'odd_even-reversed':
         return generate_odd_even_reversed(
