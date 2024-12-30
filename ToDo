@@ -50,4 +50,4 @@ sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python
 
 Commit:
 
-git commit -a -m "Updates Mapping + LED-Feedback" -m "main.py - nach strip.begin erster Pixel weiß zu zeigen skript aktiv, nicht definierte Ports werden im Mapping übersprungen, vlan abfrage hat ein timeout, IP Ping auf 0,4s geändert, Ip scan zeigt 1s rot für fail bzw grün für erfolg an, Port Anzahl wird in blau angezeigt, port_led_map Zeile geändert, def scan_for_switch um ladebalken ergänzt" -m "config.json unterschiedliche LED-Mapping-Modes" -m "utils.py mapping-modes werden generiert, def parse_port_led_mapping komplett verändert"
+git commit -a -m "Fehlerbehebung" -m "Setup Pixelstrip in main nach vorne gezogen"

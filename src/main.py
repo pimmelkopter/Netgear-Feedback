@@ -56,6 +56,23 @@ def main():
     end = config.get('scan_range_end', 255)
     subnet_prefix = config.get('scan_base', '10.18.254')
 
+    # Setup PixelStrip
+    strip = PixelStrip(
+        led_count,
+        led_pin,
+        800000, # Standardfreq WS2812
+        10,     # DMA
+        False,  # invert
+        led_brightness,    # brightness
+        0,      # channel
+        ws.WS2812_STRIP
+    )
+    strip.begin()
+
+    # LED1 weiß als "Script läuft" - LED index 0
+    strip.setPixelColor(0,255,255,255)
+    strip.show()
+
     # Parset die neuen Farb-Mappings
     vlan_color_map = parse_vlan_color_map(vlan_color_map_str)
     default_vlan_color = parse_rgb_string(default_vlan_color_str)
@@ -92,23 +109,6 @@ def main():
     base_url = f"https://{switch_ip}{base_url_suffix}"
     username = secrets.get('username', 'admin')
     password = secrets.get('password', 'admin')
-
-    # Setup PixelStrip
-    strip = PixelStrip(
-        led_count,
-        led_pin,
-        800000, # Standardfreq WS2812
-        10,     # DMA
-        False,  # invert
-        led_brightness,    # brightness
-        0,      # channel
-        ws.WS2812_STRIP
-    )
-    strip.begin()
-
-    # LED1 weiß als "Script läuft" - LED index 0
-    strip.setPixelColor(0,255,255,255)
-    strip.show()
 
     headers = {
         "Content-Type": "application/json"
