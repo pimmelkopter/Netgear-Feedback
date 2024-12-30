@@ -5,7 +5,7 @@ TODO
 3. ✅Pingtest mit echtem Switch testen - Überprüfung über Wifi und SSH ob Switch im Subnetz gefunden wird
 - ✅ LOGIN API!
 4.✅ Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie  gedacht
-- PORT Mapping - wenn Ports nicht definiert sind was passiert?
+-✅PORT Mapping - wenn Ports nicht definiert sind was passiert?
 5. GUI Webinterface mit Random Wifi machen wir erst wenn der Rest erledigt ist!
     Wifi random - ohne shared sondern ipv4 manual
     Anzeige der VLANs und Settings
@@ -15,11 +15,11 @@ TODO
     Wifi bis nächstem Boot deaktivieren
     Print/ Echo im Interface anzeigen
 TODO - POE Status integrieren
-TODO - Fehlercodes über LEDs
+✅- Fehlercodes über LEDs
 TODO - Aufräumen
 TODO - Setup Scripte trennen und in eigenen Ordner
-TODO - Mapping schöner, evtl bessere Ansätze mit ein paar vorkonfigurierten
-    - Port Mapping Lücken für die 6er-Blöcke
+✅ - Mapping schöner, evtl bessere Ansätze mit ein paar vorkonfigurierten
+TODO - Port Mapping Lücken für die 6er-Blöcke
 TODO - Wired connection bei Setup abrufen und in Skripte reinschreiben?
 TODO -- Vlan id's writen, dann Farben hinzufügen und Namen
 
@@ -50,4 +50,4 @@ sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python
 
 Commit:
 
-git commit -a -m "Fehlerbehebung" -m "Pixelstripcolor falsch definiert"
+git commit -a -m "Mapping-extended" -m "config.json werden Blöcke von Ports definiert" -m "utils.py parsing und parsingmode-generating updatet"

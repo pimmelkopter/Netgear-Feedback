@@ -41,3 +41,4 @@ sudo systemctl restart switch_monitor.service
 echo -e "\033[1;32m switch_monitor Service neu gestartet \033[0m"
 sleep 10
 sudo systemctl status switch_monitor.service --no-pager
+sudo journalctl -u switch_monitor.service --no-pager
