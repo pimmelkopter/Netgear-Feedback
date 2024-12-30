@@ -14,6 +14,7 @@
   "_comment_abschnitt": "LED Mapping Optionen",
   "port_mapping_mode": "odd_even-even_reversed",
   "leds_per_port": 2,
+  "gap_per_port": 0,
   "comment_port_mapping_modes": "'linear', 'odd_even-linear', 'odd_even-even_reversed', 'odd_even-odd_reversed','odd_even-reversed', 'manual'",
   "led_gap_start": 11,
   "led_gap_end": 0,

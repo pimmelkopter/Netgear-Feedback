@@ -5,6 +5,12 @@ TODO - Link status
 TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
     Namen werden auch angezeigt.
 
+OOB ja viel praktischer
+  "oob": false,
+  "oob_ip": "192.168.0.239",
+  "oob_fixed_ip": "192.168.0.1/24",
+  "oob_gw": "192.168.0.239",
+
 TODO GUI Webinterface - Flask/Bottle
     Wifi random - ohne shared sondern ipv4 manual
     Anzeige der VLANs und Settings
@@ -19,7 +25,8 @@ TODO load cfg file - großer Vorteil für ESP32 wäre das ja immer nur eine fest
 
 TODO - Portierung auf Pi Zero
 TODO - Portierung auf ESP32
-    OTA Update für ESP32?
+    - ESP32 main.py Generator aus einer config.json?
+    - OTA Update für ESP32?
 
 
 Ideen/ checken:
@@ -33,7 +40,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Aufräumen" -m "alle Setup Skrite in Ordner Setup verschoben" -m "changed readme.md"
+git commit -a -m "utils und main neu" -m "neue generator funktion" -m "main.py gekürzt kommentare auf englisch"
 
 
 ERLEDIGT:

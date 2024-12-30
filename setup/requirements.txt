@@ -1,3 +1,6 @@
 requests
 rpi_ws281x
 pillow
+urllib3
+time
+subprocess
