@@ -40,7 +40,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Port Stats" -m "Port Stat funktion auf LED2"
+git commit -a -m "Port Stats" -m "schnellerer blink?"
 
 
 ERLEDIGT:

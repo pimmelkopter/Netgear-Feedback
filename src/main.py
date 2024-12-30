@@ -216,7 +216,7 @@ def main():
         while True:
             # Periodically update VLAN colors for each port
             headers["Authorization"] = f"Bearer {token}"
-            blink_on = (int(time.time() * 2) % 2 == 0)
+            blink_on = (int(time.time() * 0.5) % 2 == 0)
             for port_id in range(1, port_count + 1):
                 try:
                     r = requests.get(
