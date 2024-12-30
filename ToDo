@@ -4,7 +4,8 @@ TODO
 2.✅ Netzwerksettings überarbeiten in Config.json und setup.sh und update.sh damit sie den neuen Netzwerkmanager übernehmen (siehe Infos unten)
 3. ✅Pingtest mit echtem Switch testen - Überprüfung über Wifi und SSH ob Switch im Subnetz gefunden wird
 - ✅ LOGIN API!
-4. Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie gedacht
+4.✅ Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie  gedacht
+- PORT Mapping - wenn Ports nicht definiert sind was passiert?
 5. GUI Webinterface mit Random Wifi machen wir erst wenn der Rest erledigt ist!
     Wifi random - ohne shared sondern ipv4 manual
     Anzeige der VLANs und Settings
@@ -12,7 +13,15 @@ TODO
     Save/ Save&Reboot
     Passwortschutz
     Wifi bis nächstem Boot deaktivieren
+    Print/ Echo im Interface anzeigen
 TODO - POE Status integrieren
+TODO - Fehlercodes über LEDs
+TODO - Aufräumen
+TODO - Setup Scripte trennen und in eigenen Ordner
+TODO - Mapping schöner, evtl bessere Ansätze mit ein paar vorkonfigurierten
+    - Port Mapping Lücken für die 6er-Blöcke
+TODO - Wired connection bei Setup abrufen und in Skripte reinschreiben?
+TODO -- Vlan id's writen, dann Farben hinzufügen und Namen
 
 TODO - Portierung auf Pi Zero
 TODO - Portierung auf ESp32
@@ -20,6 +29,7 @@ TODO - Portierung auf ESp32
 Ideen:
 TODO - Load Default CFG des Switchs?
 OTA Update des Skripts?
+    Pro Switch - load default C:\Users\Raphael.Funk\OneDrive - audiluma - Veranstaltungstechnik GmbH\General\04_Netzwerktechnik\04_Config Dateien & Firmware\Netgear Switche Config\Standard Configs (NEU)
 GUI mit LED-Buttons + TFT + Push/Turn-Encoder
 TODO IP Liste, die zuerst abgefragt wird in config.json - eine audiluma config.json mit gitignore
 
@@ -28,9 +38,16 @@ TODO IP Liste, die zuerst abgefragt wird in config.json - eine audiluma config.j
 CHECKEN:
 TODO sudo systemctl restart NetworkManager / sudo reboot nach Network-Changes?
 TODO IP-Scan Fortschritt anzeigen
+TODO update switch - kann man ssl handshake safe machen? sonst an Netgear schreiben
+- Was wenn mehrere Switche im Netz auffindbar?
 
 Notizen
 base url ohne https
 fixed IP mit /24
 
 sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
+
+
+Commit:
+
+git commit -a -m "Updates Mapping + LED-Feedback" -m "main.py - nach strip.begin erster Pixel weiß zu zeigen skript aktiv, nicht definierte Ports werden im Mapping übersprungen, vlan abfrage hat ein timeout, IP Ping auf 0,4s geändert, Ip scan zeigt 1s rot für fail bzw grün für erfolg an, Port Anzahl wird in blau angezeigt, port_led_map Zeile geändert, def scan_for_switch um ladebalken ergänzt" -m "config.json unterschiedliche LED-Mapping-Modes" -m "utils.py mapping-modes werden generiert, def parse_port_led_mapping komplett verändert"

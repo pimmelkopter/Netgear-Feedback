@@ -12,17 +12,31 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def ping_ip(ip):
     """ Sendet einen einzelnen Ping, um zu prüfen, ob IP erreichbar ist. """
     # -c 1 => 1 Paket; -W 1 => 1 Sekunde warten
-    ret = subprocess.call(['ping', '-c', '1', '-W', '1', ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ret = subprocess.call(['ping', '-c', '1', '-W', '0.4', ip], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return (ret == 0)
 
-def scan_for_switch(subnet_prefix="10.18.254", start=1, end=254):
-    """ Scannt die IPs im angegebenen Bereich, um den ersten erreichbaren Switch zu finden. """
+def scan_for_switch(subnet_prefix, start, end, strip=None, led_count=48): #led count wird in main dann ausgelesen
+    total = end - start + 1
+    scanned = 0
     for i in range(start, end+1):
         candidate = f"{subnet_prefix}.{i}"
-        print(f"\rScanning:{subnet_prefix}.{i} candidate {i} of {end}", end="")
+        # Fortschritt in %
+        progress = int((scanned / total) * led_count)
+        # Zeichne Ladebalken in weiß
+        if strip is not None:
+            for led_i in range(led_count):
+                if led_i < progress:
+                    strip.setPixelColor(led_i, Color(255,255,255)) # weiß
+                else:
+                    strip.setPixelColor(led_i, 0)
+            strip.show()
+
+        print(f"\rScanning: {candidate} ({scanned}/{total})", end="")
         if ping_ip(candidate):
             print(f"\nSwitch found at: {candidate}")
             return candidate
+        scanned += 1
+    print()
     return None
 
 def main():
@@ -53,12 +67,24 @@ def main():
         print("Scanne Netzwerk nach erstem erreichbarem Switch...")
         # Beispiel: Vorbelegen mit 10.18.254.* oder aus fixed_ip extrahieren
         # Hier hartkodiert als Bsp. anwendbar:
-        scanned_ip = scan_for_switch(subnet_prefix, start, end)
+        scanned_ip = scan_for_switch(subnet_prefix, start, end, strip=strip, led_count=led_count)
         if scanned_ip:
             print(f"Switch gefunden: {scanned_ip}")
             switch_ip = scanned_ip
+            for i in range(led_count):
+                strip.setPixelColor(i, Color(0,255,0)) # grün für erfolg
+            strip.show()
+            time.sleep(1.0)
         else:
-            print("Kein Switch gefunden, breche ab.")
+            print("Kein Switch gefunden, skript restartet in 10s")
+            for sec in range(10):
+                # pro Sekunde 1 LED rot
+                if sec < led_count:
+                    strip.setPixelColor(sec, Color(255,0,0))
+                strip.show()
+                time.sleep(1)
+            # Dann Neustart:
+            print("Skript beendet - sollte neu starten")
             sys.exit(1)
     else:
         print(f"Nutze konfiguriertes Switch-IP: {switch_ip}")
@@ -79,6 +105,10 @@ def main():
         ws.WS2812_STRIP
     )
     strip.begin()
+
+    # LED1 weiß als "Script läuft" - LED index 0
+    strip.setPixelColor(0,255,255,255)
+    strip.show()
 
     headers = {
         "Content-Type": "application/json"
@@ -115,11 +145,18 @@ def main():
             dev_info = resp_dev.json().get("device_info", {})
             port_count = int(dev_info.get("numOfPorts", 24))
             print(f"Switch meldet {port_count} Ports.")
+            for i in range(led_count): # Port Anzahl in blau anzeigen
+                if i < port_count:
+                    strip.setPixelColor(i, Color(0,0,255))
+                else:
+                    strip.setPixelColor(i, 0)
+            strip.show()
+            time.sleep(1.0)
         except Exception as e:
             print(f"Konnte device_info nicht abrufen. Nutze fallback: {port_count} Ports. Fehler: {e}")
 
     # Mappings: port -> [ledIndex,...]
-    port_led_map = parse_port_led_mapping(config.get('port_led_mapping', ''))
+    port_led_map = parse_port_led_mapping(config)
 
     # Cleanup-Funktion, um LEDs auszuschalten bei Ctrl+C
     def cleanup_and_exit():
@@ -135,7 +172,7 @@ def main():
             for port_id in range(1, port_count + 1):
                 # VLAN abrufen
                 try:
-                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=False)
+                    r = requests.get(f"{base_url}/swcfg_port?portid={port_id}", headers=headers, verify=False, timeout=2)
                     r.raise_for_status()
                     port_data = r.json().get("switchPortConfig", {})
                     vlan_id = port_data.get("portVlanId", 1)
@@ -147,13 +184,11 @@ def main():
                         r_val, g_val, b_val = default_vlan_color
                     color = Color(r_val, g_val, b_val)
 
-                    # LEDs für diesen Port setzen
+                    # Mapping
                     leds_for_this_port = port_led_map.get(port_id, [])
                     if not leds_for_this_port:
-                        # Wenn kein Mapping hinterlegt, z. B. default: 2 LEDs pro Port
-                        # => LED-Paar an (port_id-1)*2 und (port_id-1)*2+1
-                        led_index_base = (port_id - 1) * 2
-                        leds_for_this_port = [led_index_base, led_index_base + 1]
+                        # skip_undefined
+                        continue
 
                     for led_idx in leds_for_this_port:
                         if 0 <= led_idx < led_count:

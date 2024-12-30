@@ -1,21 +1,31 @@
 {
-    "dhcp": false,
-    "ip_scan": true,
-    "switch_ip": "c8a21383-bf5e-41f3-b11e-46b83dbbcb45.mock.pstmn.io",
-    "base_url_suffix": ":8443/api/v1",
-    "fixed_ip": "10.18.254.3/24",
-    "fixed_gw": "10.18.254.1",
-    "dns_server": "8.8.8.8",
-    "auto_detect_ports": true,
-    "fixed_port_count": 24,
-    "port_led_mapping": "1:12,13;3:14,15;5:16,17;7:18,19;9:20,21;11:22,23;13:25,26;15:27,28;17:29,30;19:31,32;21:33,34;23:35,26",
-    "led_pin": 18,
-    "scan_base": "10.18.254",
-    "scan_range_start": 100,
-    "scan_range_end": 255,
-    "led_count": 70,
-    "led_brightness": 128,
-    "update_interval": 5,
-    "default_vlan_color": "0,0,255",
-    "vlan_color_map": "1:5,5,5;10:0,119,0;11:0,255,0;12:255,0,0;20:0,0,255;21:0,0,170;22:0,0,119;30:255,0,255;31:255,0,170;50:170,255,0;90:255,255,0;99:255,255,255"
-  }
+  "dhcp": false,
+  "ip_scan": true,
+  "switch_ip": "c8a21383-bf5e-41f3-b11e-46b83dbbcb45.mock.pstmn.io",
+  "base_url_suffix": ":8443/api/v1",
+  "fixed_ip": "10.18.254.3/24",
+  "fixed_gw": "10.18.254.1",
+  "dns_server": "8.8.8.8",
+  "auto_detect_ports": true,
+  "fixed_port_count": 24,
+
+  "_comment": "LED Mapping Optionen",
+  "port_mapping_mode": "odd_even-even_reversed",
+  "leds_per_port": 2,
+  "comment_port_mapping": "Modes: 'linear', 'odd_even-linear', 'odd_even-even_reversed', 'odd_even-odd_reversed','odd_even-reversed', 'manual'",
+  
+  "_comment2":"Falls man weiterhin manuell eine Stringliste hat, geht das auch:",
+  "port_led_mapping": "1:1,2;2:3,4;3:5,6;4:7,8",
+
+  "led_pin": 18,
+  "scan_base": "10.18.254",
+  "scan_range_start": 145,
+  "scan_range_end": 160,
+  "led_count": 48,
+  "led_brightness": 128,
+  "update_interval": 5,
+
+  "_comment3": "VLAN-Farben",
+  "default_vlan_color": "0,0,255",
+  "vlan_color_map": "1:0,0,0;10:0,119,0;11:0,255,0;12:255,0,0;20:0,0,255;21:0,0,170;22:0,0,119;30:255,0,255;31:255,0,170;50:170,255,0;90:255,255,0;99:255,255,255"
+}
