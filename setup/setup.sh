@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git jq
 sudo chmod +x "${PROJECT_DIR}/update.sh"
-sudo chmod +x "${PROJECT_DIR}/run.sh"
+sudo chmod +x "${PROJECT_DIR}/setup/fixed-hotspot.sh"
 sudo cp "${PROJECT_DIR}/settings/secrets_initial.json" "${PROJECT_DIR}/settings/secrets.json"
 
 # 1) Python venv erstellen
@@ -18,10 +18,9 @@ fi
 # 2) venv aktivieren und Requirements installieren
 source "${PROJECT_DIR}/venv/bin/activate"
 pip install --upgrade pip
-pip install -r "${PROJECT_DIR}/requirements.txt"
-sudo cp switch_monitor.service /etc/systemd/system/switch_monitor.service
-# TODO sudo systemctl enable switch_monitor
-# TODO sudo systemctl start switch_monitor
+pip install -r "${PROJECT_DIR}/setup/requirements.txt"
+sudo cp "${PROJECT_DIR}/setup/switch_monitor.service" /etc/systemd/system/switch_monitor.service
+sudo systemctl enable switch_monitor
 
 ./update.sh
 

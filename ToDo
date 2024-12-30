@@ -1,12 +1,11 @@
-Script läuft mit Mockserver
-TODO
-1.✅ Festen Wifi Hotspot erstellen, der einen SSH Zugriff ermöglicht, auch wenn man für die Switch-Erkennung in einem anderen Subnetz ist. Also zum Beispiel "Test-AP-RPI4" pw "netgear12345678" mit IP Adresse 192.168.0.1 und aktiviertem DHCP und SSH
-2.✅ Netzwerksettings überarbeiten in Config.json und setup.sh und update.sh damit sie den neuen Netzwerkmanager übernehmen (siehe Infos unten)
-3. ✅Pingtest mit echtem Switch testen - Überprüfung über Wifi und SSH ob Switch im Subnetz gefunden wird
-- ✅ LOGIN API!
-4.✅ Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie  gedacht
--✅PORT Mapping - wenn Ports nicht definiert sind was passiert?
-5. GUI Webinterface mit Random Wifi machen wir erst wenn der Rest erledigt ist!
+TODO - Aufräumen
+    - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
+TODO - POE Status integrieren
+TODO - Link status
+TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
+    Namen werden auch angezeigt.
+
+TODO GUI Webinterface - Flask/Bottle
     Wifi random - ohne shared sondern ipv4 manual
     Anzeige der VLANs und Settings
     Änderung der VLANs
@@ -14,42 +13,39 @@ TODO
     Passwortschutz
     Wifi bis nächstem Boot deaktivieren
     Print/ Echo im Interface anzeigen
-TODO - POE Status integrieren
-✅- Fehlercodes über LEDs
-TODO - Aufräumen
-TODO - Setup Scripte trennen und in eigenen Ordner
-✅ - Mapping schöner, evtl bessere Ansätze mit ein paar vorkonfigurierten
-TODO - Port Mapping Lücken für die 6er-Blöcke
-TODO - Wired connection bei Setup abrufen und in Skripte reinschreiben?
-TODO -- Vlan id's writen, dann Farben hinzufügen und Namen
+    wenn mehrere Switche im Netz auffindbar? - in Web-GUI Auswahl treffen
+TODO load cfg file - großer Vorteil für ESP32 wäre das ja immer nur eine feste File
+    Pro Switch - load default C:\Users\Raphael.Funk\OneDrive - audiluma - Veranstaltungstechnik GmbH\General\04_Netzwerktechnik\04_Config Dateien & Firmware\Netgear Switche Config\Standard Configs (NEU)
 
 TODO - Portierung auf Pi Zero
-TODO - Portierung auf ESp32
+TODO - Portierung auf ESP32
+    OTA Update für ESP32?
 
-Ideen:
-TODO - Load Default CFG des Switchs?
-OTA Update des Skripts?
-    Pro Switch - load default C:\Users\Raphael.Funk\OneDrive - audiluma - Veranstaltungstechnik GmbH\General\04_Netzwerktechnik\04_Config Dateien & Firmware\Netgear Switche Config\Standard Configs (NEU)
-GUI mit LED-Buttons + TFT + Push/Turn-Encoder
-TODO IP Liste, die zuerst abgefragt wird in config.json - eine audiluma config.json mit gitignore
 
--pi4.local pi raspberry
-
-CHECKEN:
-TODO sudo systemctl restart NetworkManager / sudo reboot nach Network-Changes?
-TODO IP-Scan Fortschritt anzeigen
-TODO update switch - kann man ssl handshake safe machen? sonst an Netgear schreiben
-- Was wenn mehrere Switche im Netz auffindbar?
-{{baseUrl}}/device_config?file=running-config - um vlan farben aus config zu ziehen?
-- utils verschlanken - so dass ein generator alle logiken kann
+Ideen/ checken:
+- UI mit LED-Buttons + TFT + Push/Turn-Encoder
+- update switch - kann man ssl handshake safe machen? sonst an Netgear schreiben
 
 Notizen
-base url ohne https
-fixed IP mit /24
-
-sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
-
+pi4.local 
+192.168.0.1
+pi raspberry
 
 Commit:
 
-git commit -a -m "Mapping fix-4" -m "Lücke zwischen oberer und unterer Reihe für alle Mapping Logik Generatoren"
+git commit -a -m "Aufräumen" -m "alle Setup Skrite in Ordner Setup verschoben" -m "changed readme.md"
+
+
+ERLEDIGT:
+✅ sudo systemctl restart NetworkManager / sudo reboot nach Network-Changes?
+✅ IP-Scan Fortschritt anzeigen
+✅ - Mapping schöner, evtl bessere Ansätze mit ein paar vorkonfigurierten
+✅ - Port Mapping Lücken für die 6er-Blöcke
+✅ Script läuft mit Mockserver
+✅ Festen Wifi Hotspot erstellen, der einen SSH Zugriff ermöglicht, auch wenn man für die Switch-Erkennung in einem anderen Subnetz ist. Also zum Beispiel "Test-AP-RPI4" pw "netgear12345678" mit IP Adresse 192.168.0.1 und aktiviertem DHCP und SSH
+✅ Netzwerksettings überarbeiten in Config.json und setup.sh und update.sh damit sie den neuen Netzwerkmanager übernehmen (siehe Infos unten)
+✅Pingtest mit echtem Switch testen - Überprüfung über Wifi und SSH ob Switch im Subnetz gefunden wird
+✅ LOGIN API!
+✅ Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie  gedacht
+✅PORT Mapping - wenn Ports nicht definiert sind was passiert?
+✅- Fehlercodes über LEDs
