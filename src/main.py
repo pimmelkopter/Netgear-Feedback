@@ -166,6 +166,11 @@ def main():
         strip.show()
         sys.exit(0)
 
+    # nach Loading einmal alle LEDs aus, damit danach nur Ports bespielt werden
+    for i in range(led_count):
+        strip.setPixelColor(i, 0)
+    strip.show()
+
     try:
         while True:
             headers = {"Authorization": f"Bearer {token}"}

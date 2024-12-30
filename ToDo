@@ -50,4 +50,4 @@ sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python
 
 Commit:
 
-git commit -a -m "Mapping-extended" -m "config.json werden Blöcke von Ports definiert" -m "utils.py parsing und parsingmode-generating updatet"
+git commit -a -m "Mapping fix" -m "LEDs gehen jetzt aus wo kein Port ist, Mapping kann LED Lücke zwischen oberer und unterer Reihe" -m "utils.py kommt wieder komplett aus chatgpt"
