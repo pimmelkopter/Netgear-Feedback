@@ -76,20 +76,13 @@ def get_port_status_color(speed, poe_active, blink_on):
     else:
         base_color = (0, 0, 0)     # black for no link or unknown speed
 
-    # If blink_on is False, we override base_color with black => blink effect
-    # (unless base_color is black already => then it stays black).
-    if base_color != (0,0,0) and not blink_on:
-        base_color = (0,0,0)
-
-    # If PoE is active, we alternate between base_color and blau => blink_on decides color
-    # so effectively it is green <-> blue or yellow <-> blue
-    if poe_active:
-        # If blink_on => use base_color, else use blue
-        if blink_on:
-            return base_color
-        else:
-            return (0,0,255)  # blue
+    # If PoE is active and speed>0, we blink between base_color and Blue
+    # If speed=0 => everything is black anyway.
+    if poe_active and base_color != (0,0,0):
+        # blink_on => base_color, else => Blue
+        return base_color if blink_on else (0, 0, 255)
     else:
+        # Not PoE or no link => just base_color (solid, no blink)
         return base_color
 
 def main():
@@ -216,7 +209,7 @@ def main():
         while True:
             # Periodically update VLAN colors for each port
             headers["Authorization"] = f"Bearer {token}"
-            blink_on = (int(time.time() * 0.5) % 2 == 0)
+            blink_on = (int(time.time() * 8) % 2 == 0)
             for port_id in range(1, port_count + 1):
                 try:
                     r = requests.get(
@@ -261,22 +254,20 @@ def main():
                         r_stat.raise_for_status()
                         stats_data = r_stat.json().get("switchStatsPort", {})
 
-                        # Evaluate "speed" and "poeStatus" for color logic
-                        speed = stats_data.get("speed", 0)       # 5 => gigabit, 4 => 100, etc.
+                        ## speed=5 => gigabit, speed=4 => 100 Mbit, etc.
+                        speed = stats_data.get("speed", 0)
                         poe_code = stats_data.get("poeStatus", 0)
+                        poe_active = (poe_code > 0)  # or interpret the codes more finely
 
-                        # We'll treat poe_status>0 as "active" or interpret codes if you want more detail
-                        poe_active = (poe_code > 0)
-
-                        # figure out color for second LED
+                        # get the color for second LED
                         (r_stat_val, g_stat_val, b_stat_val) = get_port_status_color(
                             speed=speed,
                             poe_active=poe_active,
-                            blink_on=blink_on
+                            blink_on=blink_on   # from the global loop
                         )
                         status_color = Color(r_stat_val, g_stat_val, b_stat_val)
 
-                        # set second LED
+                        # set LED #2
                         led_idx_2 = leds_for_port[1]
                         if 0 <= led_idx_2 < led_count:
                             strip.setPixelColor(led_idx_2, status_color)
