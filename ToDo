@@ -50,4 +50,4 @@ sudo OPENSSL_CONF=/etc/ssl/openssl.cnf /home/pi/Netgear-Feedback/venv/bin/python
 
 Commit:
 
-git commit -a -m "Fehlerbehebung" -m "Setup Pixelstrip in main nach vorne gezogen"
+git commit -a -m "Fehlerbehebung" -m "Pixelstripcolor falsch definiert"

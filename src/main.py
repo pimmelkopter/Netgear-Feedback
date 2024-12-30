@@ -70,7 +70,7 @@ def main():
     strip.begin()
 
     # LED1 weiß als "Script läuft" - LED index 0
-    strip.setPixelColor(0,255,255,255)
+    strip.setPixelColor(0, Color(255,255,255))
     strip.show()
 
     # Parset die neuen Farb-Mappings

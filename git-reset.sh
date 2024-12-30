@@ -1,7 +1,7 @@
 #!/bin/bash
 cp git-reset.sh git-reset.bak
 echo "Bitte ans Internet anschließen!"
-sleep 3
+sleep 10
 echo "Stelle Verbindung auf DHCP um... - wenn die Nachricht länger als 30s bleibt drücke Strg+C"
 sudo nmcli connection delete "Wired connection 1"
 sudo nmcli connection add type ethernet ifname eth0 con-name "Wired connection 1" ipv4.method auto ipv6.method ignore
@@ -22,7 +22,7 @@ while ! ping -c 1 google.com &>/dev/null; do
     fi
 done
 
-echo "\033[1;32m Internetverbindung hergestellt! \033[0m"
+echo -e "\033[1;32m Internetverbindung hergestellt! \033[0m"
 git fetch origin
 git reset --hard origin/raspberrypi
 
@@ -34,11 +34,10 @@ sudo chmod +x setup.sh
 sudo chmod +x git-reset.sh
 
 echo "Bitte wieder an den Switch anschließen!"
-echo "3s sollen vergehen"
-sleep 3
-echo "sind 3s vergangen?"
+sleep 10
 ./update.sh
 echo "Update.sh durchgeführt"
 sudo systemctl restart switch_monitor.service
-echo "\033[1;32m switch_monitor Service neu gestartet \033[0m"
+echo -e "\033[1;32m switch_monitor Service neu gestartet \033[0m"
+sleep 10
 sudo systemctl status switch_monitor.service --no-pager
