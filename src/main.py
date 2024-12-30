@@ -60,6 +60,38 @@ def scan_for_switch(subnet_prefix, start, end, strip=None, led_count=48):
     print()  # move to next line if none found
     return None
 
+def get_port_status_color(speed, poe_active, blink_on):
+    """
+    speed: e.g. 5 => Gigabit, 4 => 100 Mbit, etc.
+    poe_active: bool, True if PoE is active.
+    blink_on: bool, toggling for blink effect.
+
+    Returns an (r,g,b) tuple for the second LED.
+    """
+    # Determine base color (if speed=5 => green, if speed=4 => yellow, else black).
+    if speed == 5:
+        base_color = (0, 255, 0)   # green
+    elif speed == 4:
+        base_color = (255, 255, 0) # yellow
+    else:
+        base_color = (0, 0, 0)     # black for no link or unknown speed
+
+    # If blink_on is False, we override base_color with black => blink effect
+    # (unless base_color is black already => then it stays black).
+    if base_color != (0,0,0) and not blink_on:
+        base_color = (0,0,0)
+
+    # If PoE is active, we alternate between base_color and blau => blink_on decides color
+    # so effectively it is green <-> blue or yellow <-> blue
+    if poe_active:
+        # If blink_on => use base_color, else use blue
+        if blink_on:
+            return base_color
+        else:
+            return (0,0,255)  # blue
+    else:
+        return base_color
+
 def main():
     config = load_config()
     secrets = load_secrets()
@@ -77,6 +109,7 @@ def main():
     start = config.get('scan_range_start', 10)
     end = config.get('scan_range_end', 255)
     subnet_prefix = config.get('scan_base', '10.18.254')
+    port_stats_on_led_2 = config.get('port_stats_on_led_2', False)
 
     # Initialize the LED strip
     strip = PixelStrip(
@@ -183,6 +216,7 @@ def main():
         while True:
             # Periodically update VLAN colors for each port
             headers["Authorization"] = f"Bearer {token}"
+            blink_on = (int(time.time() * 2) % 2 == 0)
             for port_id in range(1, port_count + 1):
                 try:
                     r = requests.get(
@@ -201,13 +235,52 @@ def main():
                     else:
                         (r_val, g_val, b_val) = default_vlan_color
 
-                    color = Color(r_val, g_val, b_val)
+                    vlan_color = Color(r_val, g_val, b_val)
 
                     # Update assigned LED(s) for this port
                     leds_for_port = port_led_map.get(port_id, [])
-                    for led_idx in leds_for_port:
-                        if 0 <= led_idx < led_count:
-                            strip.setPixelColor(led_idx, color)
+                    if not leds_for_port:
+                        # skip_undefined
+                        continue
+
+                    # Set VLAN color on the *first* LED of this port
+                    if len(leds_for_port) >= 1:
+                        led_idx_1 = leds_for_port[0]
+                        if 0 <= led_idx_1 < led_count:
+                            strip.setPixelColor(led_idx_1, vlan_color)
+
+                    # 2) Port-Stats Info (NEU)
+                    # Only if config says so & we have at least 2 LEDs:
+                    if port_stats_on_led_2 and len(leds_for_port) >= 2:
+                        r_stat = requests.get(
+                            f"{base_url}/sw_portstats?portid={port_id}",
+                            headers=headers,
+                            verify=False,
+                            timeout=2
+                        )
+                        r_stat.raise_for_status()
+                        stats_data = r_stat.json().get("switchStatsPort", {})
+
+                        # Evaluate "speed" and "poeStatus" for color logic
+                        speed = stats_data.get("speed", 0)       # 5 => gigabit, 4 => 100, etc.
+                        poe_code = stats_data.get("poeStatus", 0)
+
+                        # We'll treat poe_status>0 as "active" or interpret codes if you want more detail
+                        poe_active = (poe_code > 0)
+
+                        # figure out color for second LED
+                        (r_stat_val, g_stat_val, b_stat_val) = get_port_status_color(
+                            speed=speed,
+                            poe_active=poe_active,
+                            blink_on=blink_on
+                        )
+                        status_color = Color(r_stat_val, g_stat_val, b_stat_val)
+
+                        # set second LED
+                        led_idx_2 = leds_for_port[1]
+                        if 0 <= led_idx_2 < led_count:
+                            strip.setPixelColor(led_idx_2, status_color)
+
 
                 except Exception as ex:
                     print(f"Error on port {port_id}: {ex}")

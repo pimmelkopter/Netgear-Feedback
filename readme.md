@@ -39,7 +39,6 @@ ToDos
 
 
 utils.py port mapping generator:
-    """
     Generates a dict {port_id: [ledIndices]} based on the chosen mode:
       - 'linear': just 1..port_count in ascending order
       - 'odd_even-linear': odd asc, then even asc
@@ -54,7 +53,7 @@ utils.py port mapping generator:
       gap_between_rows: used only when we have separate "odd" and "even" blocks
       block_size, gap_after_block:
                       after 'block_size' ports, skip 'gap_after_block' LEDs
-
+                      
     Returns a dict: {port_id: [ledIndex,...], ...}
     """
 
