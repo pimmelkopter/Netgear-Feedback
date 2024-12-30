@@ -73,8 +73,10 @@ def get_port_status_color(speed, poe_active, blink_on):
         base_color = (0, 255, 0)   # green
     elif speed == 4:
         base_color = (255, 255, 0) # yellow
+    elif speed == 0:
+        base_color = (0,0,0)
     else:
-        base_color = (0, 0, 0)     # black for no link or unknown speed
+        base_color = (255, 255, 0)     # black for no link or unknown speed
 
     # If PoE is active and speed>0, we blink between base_color and Blue
     # If speed=0 => everything is black anyway.
