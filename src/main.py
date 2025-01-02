@@ -83,6 +83,9 @@ def get_port_status_color(speed, poe_active, blink_on):
         return base_color if blink_on else (0,0,255)
     else:
         # Not PoE or no link => just base_color (solid, no blink)
+        #Helligkeit halbieren NUR für stats LED => r//2, g//2, b//2
+        r, g, b = base_color
+        base_color = (r // 2, g // 2, b // 2)
         return base_color
 
 def main():
@@ -251,14 +254,41 @@ def main():
                         )
                         r_stat.raise_for_status()
                         stats_data = r_stat.json().get("switchStatsPort", {})
-                        speed = stats_data.get("speed", 0)
-                        poe_code = stats_data.get("poeStatus", 0)
-                        poe_active = (poe_code > 0)
-                        port_info_cache[port_id]["speed"] = speed
-                        port_info_cache[port_id]["poe_active"] = poe_active
+                        parsed_speed = parse_speed(stats_data)
+                        parsed_poe = parse_poe(stats_data)
+                        port_info_cache[port_id]["speed"] = parsed_speed
+                        port_info_cache[port_id]["poe_active"] = parsed_poe
                     except:
                         port_info_cache[port_id]["speed"] = 0
                         port_info_cache[port_id]["poe_active"] = False
+            
+            def parse_speed(stats_data):
+                # 1) Check if oprState != 1 => treat as no link
+                opr_state = stats_data.get("oprState", -1)
+                if opr_state != 1:
+                    return 0  # "speed=0" => no link
+
+                # 2) Check 'speed' field
+                # Empirisch: 7 => 1G, 6 => 100M? 130 => no link?
+                raw_speed = stats_data.get("speed", -1)
+                if raw_speed == 7:
+                    return 5  # 5 => "Gigabit" (für deine Logik)
+                elif raw_speed == 6:
+                    return 4  # 4 => "100Mbit"
+                else:
+                    # fallback => unknown => treat as 4 or 0?
+                    return 0
+                
+            def parse_poe(stats_data):
+                poe_code = stats_data.get("poeStatus", 0)
+                # Evtl. 2 => PoE in Usage, 1 => PoE enabled but no draw?
+                # Du könntest definieren: poe_active = (poe_code >= 2)
+                if poe_code >= 2:
+                    return True
+                else:
+                    return False
+
+
 
     # 2) Thread B: led_thread => alle 0.1s => LED updates (blinking)
     def led_thread():
