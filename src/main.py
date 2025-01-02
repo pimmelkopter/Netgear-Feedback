@@ -141,14 +141,7 @@ def main():
             time.sleep(1.0)
         else:
             print("No switch found. Restarting script in 10 seconds.")
-            # Turn on one red LED per second
-            for sec in range(10):
-                if sec < led_count:
-                    strip.setPixelColor(sec, Color(255,0,0))
-                strip.show()
-                time.sleep(1)
-            print("Script exiting (should be restarted via systemd or manually).")
-            sys.exit(1)
+            cleanup_and_exit()
     else:
         print(f"Using configured switch IP: {switch_ip}")
 
@@ -271,6 +264,7 @@ def main():
 
     def cleanup_and_exit():
         print("Error => Show all red for 1s, then 10s wait with first 10leds white => exit.")
+        sys.stdout.flush()
         # 1) all red
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
@@ -282,6 +276,8 @@ def main():
                 strip.setPixelColor(sec, Color(255,255,255))
             strip.show()
             time.sleep(1)
+        print("Script exiting now.")
+        sys.stdout.flush()
         sys.exit(1)
 
     # parse all ports speed, poe, VLAN

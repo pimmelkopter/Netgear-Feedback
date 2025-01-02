@@ -50,7 +50,9 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "das vorher hat funktioniert lol"
+git commit -a -m "Fehlerbehebung" -m "stflush eingeführt für exit"
+
+"Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
 
 
 ERLEDIGT:
