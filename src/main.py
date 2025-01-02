@@ -276,6 +276,7 @@ def main():
                 strip.setPixelColor(sec, Color(255,255,255))
             strip.show()
             time.sleep(1)
+        time.sleep(10)
         print("Script exiting now. 10s should have passed")
         sys.stdout.flush()
         sys.exit(1)
@@ -317,7 +318,7 @@ def main():
                     poe  = parse_poe(item)
                     # determine VLAN color from item["vlans"]
                     vlans_list = item.get("vlans",[])
-                    c = parse_vlan_color_for_port(vlans_list, config)
+                    c = parse_vlan_color_for_port(vlans_list, config, default_vlan_color, vlan_color_map=None)
 
                     port_info_cache[pid]["speed"]      = s
                     port_info_cache[pid]["poe_active"] = poe
@@ -379,10 +380,10 @@ def main():
                     else:
                         # Stats
                         if speed==0 and poe==False:
-                            strip.setPixelColor(led_idx, Color(vr,vg,vb))
+                            strip.setPixelColor(led_idx_1, Color(vr,vg,vb))
                         else:
                             (sr,sg,sb)=get_port_status_color(speed,poe,blink_on)
-                            strip.setPixelColor(led_idx, Color(sr,sg,sb))
+                            strip.setPixelColor(led_idx_1, Color(sr,sg,sb))
 
             strip.show()
 

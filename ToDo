@@ -48,9 +48,13 @@ pi4.local
 192.168.0.1
 pi raspberry
 
+Nochmal damit du meine Logik verstehst: wenn scan_vlan true ist soll das main script einmal danach scannen und dann die variable auf false setzen und die VLAN IDs egal ob einstellig oder mehrstellig in die config eintragen und den Namen dazu. Dann soll es utils aufrufen, das dann probiert die Farben zuerst aus dem mapping string zu zeiehn und zu den jeweiligen vlans einzutragen und nur wenn es vlans gibt, die keine farbe definiert haben dort einen zufallswert eintragen. 
+
+Die Haupt-HTTP soll bei jedem Update Interval die gesamte Abfrage machen und wieder alle POE/Speed und VLAN daten im cache updaten, aus dem dann die der LED-Thread die Infos zieht. Das klappt aktuell auch noch nicht
+
 Commit:
 
-git commit -a -m "Fehlerbehebung 2" -m "sys.exit ausschließlich über cleanupskript - also immer 10s pause"
+git commit -a -m "Fehlerbehebung 3" -m "sys.exit ausschließlich über cleanupskript - also immer 10s pause, neuer versuch"
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
 
