@@ -50,7 +50,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Fehlerbehebung" -m "Script merkt jetzt wenn Switch nicht mehr erreichbar" -m "VLAN Color und Name Mapping nutzt jetzt zuerst die vorgegebenen Werte und füllt nur unbekannte mit zufälliger Farbe"
+git commit -a -m "das vorher hat funktioniert lol"
 
 
 ERLEDIGT:

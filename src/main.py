@@ -182,7 +182,7 @@ def main():
             r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False, timeout=3)
             r_dev.raise_for_status()
             dev_info = r_dev.json().get("device_info", {})
-            total_ports = int(dev_info.get("numOfPorts", port_count))
+            total_ports = int(dev_info.get("numOfPorts",))
             print(f"Switch reports {total_ports} total ports.")
 
             # Apply mapping logic
