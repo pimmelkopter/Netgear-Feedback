@@ -101,7 +101,7 @@ def main():
     start = config.get('scan_range_start', 10)
     end = config.get('scan_range_end', 255)
     subnet_prefix = config.get('scan_base', '10.18.254')
-    port_stats = config.get('port_stats_on_led_2', False)
+    port_stats = config.get('port_stats', False)
     leds_per_port = config.get('leds_per_port', 1)
 
     # Initialize the LED strip

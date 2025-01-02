@@ -53,7 +53,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Main Loop" -m "Bricht jetzt ab wenn swfg config nicht erreichbar" -m "Sollte bei Port_stats=false beide Ports mit VLAN belegen, bei True wechseln"
+git commit -a -m "Main Loop - Fix 1" -m "Schreibfehler in Main.py"
 
 
 ERLEDIGT:
