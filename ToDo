@@ -1,15 +1,16 @@
 ✅ - Aufräumen
     - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
 ✅ - zwei unterschiedliche Tempi für schleifen
-TODO - Port stats sind umbenannt
-TODO OBB
-TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
-    Namen werden auch angezeigt.
-
+✅ - Port stats sind umbenannt
 TODO echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
 TODO blink aktuell nur mit Update intervall
 TODO - POE Status integrieren
 TODO - Link status
+TODO OBB
+TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
+    Namen werden auch angezeigt.
+
+
 
 TODO - mehr in journal schreiben oder python info und echo print
 
@@ -53,7 +54,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Main Loop - Fix 2" -m "Timing LED-Aktualisierung und HTTP-Refresh war noch nicht unabhängig" -m "leds innerhalb eines ports in einem reversed block werden nochmal reversed"
+git commit -a -m "Main Loop - Fix 3" -m "Jetzt doch mit zwei Threads für unabhängiges Timing"
 
 
 ERLEDIGT:
