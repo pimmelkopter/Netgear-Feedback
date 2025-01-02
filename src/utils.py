@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 # Paths for config
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -140,6 +141,7 @@ def parse_port_led_mapping(config):
 
 
 def parse_vlan_color_map(mapping_str):
+    """Parses e.g. '10:255,0,0;11:0,255,0' into {10: (255,0,0), 11: (0,255,0)}"""
     result = {}
     if not mapping_str:
         return result
@@ -159,6 +161,7 @@ def parse_vlan_color_map(mapping_str):
     return result
 
 def parse_rgb_string(rgb_str):
+    """Parses e.g. '255,0,0' => (255,0,0) or fallback => (0,0,255)."""
     parts = [c.strip() for c in rgb_str.split(',')]
     if len(parts) == 3:
         try:
@@ -166,4 +169,29 @@ def parse_rgb_string(rgb_str):
             return (r, g, b)
         except:
             pass
-    return (0, 0, 255) #Fallback Blue
+    return (0, 0, 255)  # Fallback
+
+# ----------------------
+def parse_vlan_color_for_port(vlans_list, config, default_vlan_color, vlan_color_map=None):
+    """
+    We pick the first VLAN in the list => check if config has "vlanXX_color".
+    If not found => optionally check 'vlan_color_map' from the global string
+    If still not found => use default_vlan_color.
+    """
+    if not vlans_list:
+        return default_vlan_color
+
+    first_vlan = vlans_list[0]
+    # 1) Check config => "vlanXX_color"
+    color_key = f"vlan{first_vlan}_color"
+    if color_key in config:
+        c_str = config[color_key]
+        return parse_rgb_string(c_str)
+
+    # 2) Optional: Check the global VLAN color map from config (if you want)
+    # e.g. if 'vlan_color_map' has {first_vlan: (r,g,b)}
+    if vlan_color_map and (first_vlan in vlan_color_map):
+        return vlan_color_map[first_vlan]
+
+    # 3) fallback
+    return default_vlan_color

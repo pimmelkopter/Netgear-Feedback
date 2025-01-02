@@ -50,7 +50,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Big Update" -m "Port Abfrage funktioniert und wird auf 8/16/24/40 gemappt" -m "VLANs werden abgerufen und in Config geschrieben" -m "es gibt nur noch eine HTTP Abfrage für Port VLAN/Status -ALL - also alle Ports gleichzeitig"
+git commit -a -m "Fehlerbehebung" -m "Script merkt jetzt wenn Switch nicht mehr erreichbar" -m "VLAN Color und Name Mapping nutzt jetzt zuerst die vorgegebenen Werte und füllt nur unbekannte mit zufälliger Farbe"
 
 
 ERLEDIGT:

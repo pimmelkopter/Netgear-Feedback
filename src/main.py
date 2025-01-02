@@ -14,7 +14,9 @@ from .utils import (
     load_secrets,
     parse_port_led_mapping,
     parse_vlan_color_map,
-    parse_rgb_string
+    parse_rgb_string,
+    parse_vlan_color_for_port,
+    CONFIG_PATH
 )
 
 # Suppress InsecureRequestWarning for self-signed certificates
@@ -80,7 +82,8 @@ def get_port_status_color(speed, poe_active, blink_on):
         if poe_active:
             return (0, 0, 255)  # blue (PoE active)
         else:
-            return base_color  # black (no PoE)
+            r, g, b = base_color
+            return (r // 2, g // 2, b // 2)
 
 
 def main():
@@ -171,7 +174,7 @@ def main():
 
     # Auto-detect number of ports
     auto_detect_ports = config.get('auto_detect_ports', True)
-    port_count = config.get('fixed_port_count', 24)
+    port_count        = config.get('fixed_port_count', 24)
 
     try:
         if auto_detect_ports:
@@ -179,9 +182,21 @@ def main():
             r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False, timeout=3)
             r_dev.raise_for_status()
             dev_info = r_dev.json().get("device_info", {})
-            port_count = int(dev_info.get("numOfPorts", port_count))
-            print(f"Switch reports {port_count} ports.")
-            # Show port count in blue for 1s
+            total_ports = int(dev_info.get("numOfPorts", port_count))
+            print(f"Switch reports {total_ports} total ports.")
+
+            # Apply mapping logic
+            if total_ports <= 12:
+                port_count = 8
+            elif total_ports <= 24:
+                port_count = 16
+            elif total_ports <= 40:
+                port_count = 24
+            else:
+                port_count = 40
+
+            print(f"Using {port_count} ports based on total_ports={total_ports}.")
+                # Show port count in blue for 1s
             for i in range(led_count):
                 strip.setPixelColor(i, Color(0,0,255) if i < port_count else 0)
             strip.show()
@@ -255,12 +270,19 @@ def main():
     strip.show()
 
     def cleanup_and_exit():
-        """Shuts down all LEDs and exits."""
-        print("\nShutting down LEDs...")
-        for j in range(led_count):
-            strip.setPixelColor(j, 0)
+        print("Error => Show all red for 1s, then 10s wait with first 10leds white => exit.")
+        # 1) all red
+        for i in range(led_count):
+            strip.setPixelColor(i, Color(255,0,0))
         strip.show()
-        sys.exit(0)
+        time.sleep(1)
+        # 2) count up first 10 => white
+        for sec in range(10):
+            if sec<led_count:
+                strip.setPixelColor(sec, Color(255,255,255))
+            strip.show()
+            time.sleep(1)
+        sys.exit(1)
 
     # parse all ports speed, poe, VLAN
     def parse_speed(stats_json):
@@ -278,22 +300,6 @@ def main():
     def parse_poe(stats_json):
         # poeStatus >=2 => usage
         return (stats_json.get("poeStatus",0) >=2)
-
-    def parse_vlan_color_for_port(vlans): #TODO  lieber in utils
-        """
-        We pick the first VLAN in the list, then see if config has "vlanXX_color".
-        If so parse that, else default_vlan_color.
-        """
-        if not vlans:
-            return default_vlan_color
-        first_vlan = vlans[0]
-        color_key  = f"vlan{first_vlan}_color"
-        if color_key in config:
-            c_str = config[color_key]
-            return parse_rgb_string(c_str)
-        else:
-            # fallback
-            return default_vlan_color
 
     # Thread A => HTTP
     def http_thread():
@@ -315,7 +321,7 @@ def main():
                     poe  = parse_poe(item)
                     # determine VLAN color from item["vlans"]
                     vlans_list = item.get("vlans",[])
-                    c = parse_vlan_color_for_port(vlans_list)
+                    c = parse_vlan_color_for_port(vlans_list, config)
 
                     port_info_cache[pid]["speed"]      = s
                     port_info_cache[pid]["poe_active"] = poe
