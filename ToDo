@@ -2,15 +2,13 @@
     - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
 ✅ - zwei unterschiedliche Tempi für schleifen
 ✅ - Port stats sind umbenannt
-TODO echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
-TODO blink aktuell nur mit Update intervall
-TODO - POE Status integrieren
-TODO - Link status
-TODO OBB
-TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
-    Namen werden auch angezeigt.
-
-
+TODO - Wenn link nicht aktiv beide ports vlan 
+✅ echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
+✅ blink aktuell nur mit Update intervall
+✅ - POE Status integrieren
+✅ - Link status
+TODO OBB -> geht doch über fixed? testen!
+TODO cfg raussuchen für VLAN NAMEN
 
 TODO - mehr in journal schreiben oder python info und echo print
 
@@ -31,8 +29,6 @@ TODO GUI Webinterface - Flask/Bottle
     Wifi bis nächstem Boot deaktivieren
     Print/ Echo im Interface anzeigen
     wenn mehrere Switche im Netz auffindbar? - in Web-GUI Auswahl treffen
-TODO load cfg file - großer Vorteil für ESP32 wäre das ja immer nur eine feste File
-    Pro Switch - load default C:\Users\Raphael.Funk\OneDrive - audiluma - Veranstaltungstechnik GmbH\General\04_Netzwerktechnik\04_Config Dateien & Firmware\Netgear Switche Config\Standard Configs (NEU)
 
 TODO - Portierung auf Pi Zero
 TODO - Portierung auf ESP32
@@ -54,7 +50,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Main Loop - Fix 6" -m "Blink Cycle aktualisiert"
+git commit -a -m "Big Update" -m "Port Abfrage funktioniert und wird auf 8/16/24/40 gemappt" -m "VLANs werden abgerufen und in Config geschrieben" -m "es gibt nur noch eine HTTP Abfrage für Port VLAN/Status -ALL - also alle Ports gleichzeitig"
 
 
 ERLEDIGT:

@@ -4,6 +4,8 @@ import sys
 import subprocess
 import urllib3
 import threading
+import random   # für zufällige Farben, falls gewünscht
+import json
 from rpi_ws281x import PixelStrip, Color, ws
 
 # Local imports from your utils.py
@@ -85,23 +87,23 @@ def main():
     config = load_config()
     secrets = load_secrets()
 
-    # Basic settings from config
-    ip_scan = config.get('ip_scan', True)
-    switch_ip = config.get('switch_ip', '192.168.0.1')  # fallback
-    base_url_suffix = config.get('base_url_suffix', '/api/v1')
-    led_count = config.get('led_count', 48)
-    led_pin = config.get('led_pin', 18)
-    led_brightness = config.get('led_brightness', 255)
+    ip_scan          = config.get('ip_scan', True)
+    switch_ip        = config.get('switch_ip', '192.168.0.1')
+    base_url_suffix  = config.get('base_url_suffix', '/api/v1')
+    led_count        = config.get('led_count', 48)
+    led_pin          = config.get('led_pin', 18)
+    led_brightness   = config.get('led_brightness', 255)
     default_vlan_str = config.get('default_vlan_color', '0,0,255')
-    vlan_map_str = config.get('vlan_color_map', '')
-    update_interval = config.get('update_interval', 15)
-    start = config.get('scan_range_start', 10)
-    end = config.get('scan_range_end', 255)
-    subnet_prefix = config.get('scan_base', '10.18.254')
-    port_stats = config.get('port_stats', False)
-    leds_per_port = config.get('leds_per_port', 1)
+    vlan_map_str     = config.get('vlan_color_map', '')
+    update_interval  = config.get('update_interval', 15)
+    start            = config.get('scan_range_start', 10)
+    end              = config.get('scan_range_end', 255)
+    subnet_prefix    = config.get('scan_base', '10.18.254')
+    port_stats       = config.get('port_stats', False)
+    leds_per_port    = config.get('leds_per_port', 1)
+    scan_vlans       = config.get('scan_vlans', False)
 
-    # Initialize the LED strip
+    # Init LED strip
     strip = PixelStrip(
         led_count,
         led_pin,
@@ -118,7 +120,7 @@ def main():
     strip.setPixelColor(0, Color(255,255,255))
     strip.show()
 
-    # Parse VLAN color map & default color
+    # Parse VLAN color map & default color # TODO
     vlan_color_map = parse_vlan_color_map(vlan_map_str)
     default_vlan_color = parse_rgb_string(default_vlan_str)
 
@@ -185,9 +187,57 @@ def main():
             strip.show()
             time.sleep(1.0)
     except Exception as e:
-        print(f"Could not retrieve device_info. Using fallback {port_count} ports. Error: {e}")
+        print(f"Could not get device_info => fallback {port_count}. Error: {e}")
 
-    # Determine LED mapping for ports
+    # --- Neu: optional VLAN config parse from running-config
+    if scan_vlans:
+        try:
+            # device_config?file=running-config
+            headers["Authorization"] = f"Bearer {token}"
+            rc = requests.get(f"{base_url}/device_config?file=running-config",
+                              headers=headers, verify=False, timeout=5)
+            rc.raise_for_status()
+            lines = rc.json().get("Device-Config",{}).get("Running-Config",[])
+            # parse lines => look for 'vlan name XX "SOME"' pattern
+            import re
+            vlan_name_pattern = re.compile(r'^\s*vlan\s+name\s+(\d+)\s+"([^"]+)"')
+            found_something = False
+
+            for line in lines:
+                m = vlan_name_pattern.match(line.strip())
+                if m:
+                    found_something = True
+                    vlan_id_str = m.group(1)
+                    vlan_name   = m.group(2)
+                    # set config["vlanXX_name"] = ...
+                    key_name  = f"vlan{vlan_id_str}_name"
+                    config[key_name] = vlan_name
+
+                    # set config["vlanXX_color"] = random or default
+                    # falls user schon config hat => nicht überschreiben
+                    color_key = f"vlan{vlan_id_str}_color"
+                    if color_key not in config:
+                        # generate random color or do a simple next color
+                        # z.B. random R,G,B up to 255
+                        r_ = random.randint(0,255)
+                        g_ = random.randint(0,255)
+                        b_ = random.randint(0,255)
+                        config[color_key] = f"{r_},{g_},{b_}"
+
+            if found_something:
+                # set scan_vlans => false
+                config["scan_vlans"] = False
+                # now write config to disk
+                from .utils import CONFIG_PATH
+                with open(CONFIG_PATH,"w") as cf:
+                    json.dump(config,cf, indent=2)
+                print("Updated config.json with VLAN names/colors, scan_vlans => false.")
+            else:
+                print("No VLAN lines found in running-config?")
+        except Exception as ex:
+            print(f"Could not parse running-config for VLANs: {ex}")
+
+    # parse LED-mapping
     port_led_map = parse_port_led_mapping(config)
 
     # Prepare a cache for each port, so we don't spam requests in LED-loop
@@ -212,78 +262,67 @@ def main():
         strip.show()
         sys.exit(0)
 
-    # --- two threads for independent refresh time http_thread() und led_thread() ---
+    # parse all ports speed, poe, VLAN
+    def parse_speed(stats_json):
+        """Return 5 => gigabit, 4 => 100Mbit, 0 => no link."""
+        if stats_json.get("oprState",0) !=1:
+            return 0
+        raw_speed = stats_json.get("speed",0)
+        if raw_speed == 7:
+            return 5
+        elif raw_speed in (3,4,6):
+            return 4
+        else:
+            return 0
 
-    # 1) Thread A: http_thread => 'update_interval' sek VLAN+Stats -> port_info_cache
+    def parse_poe(stats_json):
+        # poeStatus >=2 => usage
+        return (stats_json.get("poeStatus",0) >=2)
+
+    def parse_vlan_color_for_port(vlans): #TODO  lieber in utils
+        """
+        We pick the first VLAN in the list, then see if config has "vlanXX_color".
+        If so parse that, else default_vlan_color.
+        """
+        if not vlans:
+            return default_vlan_color
+        first_vlan = vlans[0]
+        color_key  = f"vlan{first_vlan}_color"
+        if color_key in config:
+            c_str = config[color_key]
+            return parse_rgb_string(c_str)
+        else:
+            # fallback
+            return default_vlan_color
+
+    # Thread A => HTTP
     def http_thread():
         while True:
-            time.sleep(update_interval)  # Warte das Intervall
-            headers["Authorization"] = f"Bearer {token}"
-            for port_id in range(1, port_count + 1):
-                # VLAN
-                try:
-                    r_vlan = requests.get(
-                        f"{base_url}/swcfg_port?portid={port_id}",
-                        headers=headers, verify=False, timeout=3
-                    )
-                    r_vlan.raise_for_status()
-                    port_cfg = r_vlan.json().get("switchPortConfig", {})
-                    vlan_id = port_cfg.get("portVlanId", 1)
-                    # pick color
-                    if vlan_id in vlan_color_map:
-                        port_info_cache[port_id]["vlan_color"] = vlan_color_map[vlan_id]
-                    else:
-                        port_info_cache[port_id]["vlan_color"] = default_vlan_color
-                except Exception as ex:
-                    print(f"Switch unreachable => Exiting: {ex}")
-                    cleanup_and_exit()
+            time.sleep(update_interval)
+            try:
+                headers["Authorization"] = f"Bearer {token}"
+                # single request: /sw_portstats?portid=ALL
+                rsp = requests.get(f"{base_url}/sw_portstats?portid=ALL",
+                                   headers=headers, verify=False, timeout=5)
+                rsp.raise_for_status()
+                arr = rsp.json().get("switchStatsPort",[])
+                # arr is a list => each item has portId, speed, poeStatus, vlans, ...
+                for item in arr:
+                    pid  = item.get("portId", 0)
+                    if pid<1 or pid> port_count:
+                        continue
+                    s    = parse_speed(item)
+                    poe  = parse_poe(item)
+                    # determine VLAN color from item["vlans"]
+                    vlans_list = item.get("vlans",[])
+                    c = parse_vlan_color_for_port(vlans_list)
 
-                # Stats
-                if port_stats:
-                    try:
-                        r_stat = requests.get(
-                            f"{base_url}/sw_portstats?portid={port_id}",
-                            headers=headers, verify=False, timeout=3
-                        )
-                        r_stat.raise_for_status()
-                        stats_data = r_stat.json().get("switchStatsPort", {})
-                        parsed_speed = parse_speed(stats_data)
-                        parsed_poe = parse_poe(stats_data)
-                        port_info_cache[port_id]["speed"] = parsed_speed
-                        port_info_cache[port_id]["poe_active"] = parsed_poe
-                    except:
-                        port_info_cache[port_id]["speed"] = 0
-                        port_info_cache[port_id]["poe_active"] = False
-            
-            def parse_speed(stats_data):
-                # 1) Check if oprState != 1 => treat as no link
-                opr_state = stats_data.get("oprState", -1)
-                if opr_state != 1:
-                    return 0  # "speed=0" => no link
-
-                # 2) Check 'speed' field
-                # Empirisch: 7 => 1G, 6 => 100M? 130 => no link?
-                raw_speed = stats_data.get("speed", -1)
-                if raw_speed == 7:
-                    return 5  # 5 => "Gigabit" (für deine Logik)
-                elif raw_speed == 3:
-                    return 4  # 4 => "100Mbit"
-                elif raw_speed == 130:
-                    return 0
-                else:
-                    # fallback => unknown => treat as 4 or 0?
-                    return 4
-                
-            def parse_poe(stats_data):
-                poe_code = stats_data.get("poeStatus", 0)
-                # Evtl. 2 => PoE in Usage, 1 => PoE enabled but no draw?
-                # Du könntest definieren: poe_active = (poe_code >= 2)
-                if poe_code >= 2:
-                    return True
-                else:
-                    return False
-
-
+                    port_info_cache[pid]["speed"]      = s
+                    port_info_cache[pid]["poe_active"] = poe
+                    port_info_cache[pid]["vlan_color"] = c
+            except Exception as ex:
+                print(f"HTTP error => Exiting: {ex}")
+                cleanup_and_exit()
 
     # 2) Thread B: led_thread => alle 0.1s => LED updates (blinking)
     def led_thread():
@@ -297,9 +336,10 @@ def main():
                 leds_for_port = port_led_map.get(port_id, [])
                 if not leds_for_port:
                     continue
-
-                # VLAN color from cache
-                (vr, vg, vb) = port_info_cache[port_id]["vlan_color"]
+                # read from cache
+                (vr,vg,vb) = port_info_cache[port_id]["vlan_color"]
+                speed   = port_info_cache[port_id]["speed"]
+                poe   = port_info_cache[port_id]["poe_active"]
 
                 # if port_stats=False => all mapped leds => VLAN color
                 if not port_stats:
@@ -315,12 +355,18 @@ def main():
                     if 0 <= led_idx_1 < led_count:
                         strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
 
-                    # LED #2 -> Speed/PoE
+                    # LED #2 => Stats
                     led_idx_2 = leds_for_port[1]
-                    speed = port_info_cache[port_id]["speed"]
-                    poe = port_info_cache[port_id]["poe_active"]
-                    (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
-                    strip.setPixelColor(led_idx_2, Color(sr, sg, sb))
+
+                    # bei speed=0 & poe=false => show VLAN on both
+                    if speed==0 and poe==False:
+                        if 0<=led_idx_2<led_count:
+                            strip.setPixelColor(led_idx_2,Color(vr,vg,vb))
+                    else:
+                        (sr,sg,sb) = get_port_status_color(speed, poe, blink_on)
+                        if 0<=led_idx_2<led_count:
+                            strip.setPixelColor(led_idx_2, Color(sr,sg,sb))
+
                 else:
                     # Single LED: Cycle between VLAN and Speed/PoE
                     led_idx_1 = leds_for_port[0]
@@ -329,11 +375,12 @@ def main():
                         # VLAN color for 10 cycles
                         strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
                     else:
-                        # Speed/PoE for 6 cycles
-                        speed = port_info_cache[port_id]["speed"]
-                        poe = port_info_cache[port_id]["poe_active"]
-                        (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
-                        strip.setPixelColor(led_idx_1, Color(sr, sg, sb))
+                        # Stats
+                        if speed==0 and poe==False:
+                            strip.setPixelColor(led_idx, Color(vr,vg,vb))
+                        else:
+                            (sr,sg,sb)=get_port_status_color(speed,poe,blink_on)
+                            strip.setPixelColor(led_idx, Color(sr,sg,sb))
 
             strip.show()
 
