@@ -53,7 +53,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Main Loop - Fix 1" -m "Schreibfehler in Main.py"
+git commit -a -m "Main Loop - Fix 2" -m "Timing LED-Aktualisierung und HTTP-Refresh war noch nicht unabhängig" -m "leds innerhalb eines ports in einem reversed block werden nochmal reversed"
 
 
 ERLEDIGT:

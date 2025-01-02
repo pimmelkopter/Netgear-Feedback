@@ -207,16 +207,14 @@ def main():
     strip.show()
 
     def cleanup_and_exit():
-        """Turns off all LEDs and exits."""
+        """Shuts down all LEDs and exits."""
         print("\nShutting down LEDs...")
-        for i in range(led_count):
-            strip.setPixelColor(i, 0)
+        for j in range(led_count):
+            strip.setPixelColor(j, 0)
         strip.show()
         sys.exit(0)
 
-    # Single-thread with two intervals:
-    #  - HTTP: every 'update_interval' seconds
-    #  - LED:  every 0.1s => 10Hz
+    # Intervals for HTTP (update_interval) and LED (0.1s => 10Hz)
     next_http_time = time.time()
     next_led_time = time.time()
     HTTP_INTERVAL = float(update_interval)
@@ -229,7 +227,7 @@ def main():
         while True:
             now = time.time()
 
-            # 1) HTTP Update (every update_interval)
+            # 1) HTTP fetch => every 'update_interval' seconds
             if now >= next_http_time:
                 next_http_time = now + HTTP_INTERVAL
 
@@ -252,7 +250,7 @@ def main():
                             port_info_cache[port_id]["vlan_color"] = default_vlan_color
                     except Exception as ex:
                         print(f"Switch unreachable => Exiting: {ex}")
-                        sys.exit(1)
+                        cleanup_and_exit()
 
                     # Stats (only if port_stats_on_led_2==True)
                     if port_stats:
@@ -277,10 +275,9 @@ def main():
             if now >= next_led_time:
                 next_led_time = now + LED_INTERVAL
                 blink_cycle += 1
-                # blink_on => e.g. toggles at 5Hz if we want
-                blink_on = (blink_cycle % 2 == 0)
+                blink_on = ((blink_cycle % 2) == 0)  # toggles at 5Hz
 
-                for port_id in range(1, port_count+1):
+                for port_id in range(1, port_count + 1):
                     leds_for_port = port_led_map.get(port_id, [])
                     if not leds_for_port:
                         # skip_undefined

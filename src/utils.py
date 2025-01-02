@@ -30,6 +30,8 @@ def generate_port_mapping(mode,
     # Default linear:
     ports1 = list(range(1, port_count+1))
     ports2 = []
+    odd_reversed = False
+    even_reversed = False
 
     if mode.startswith('odd_even'):
         # Split odd vs even
@@ -39,8 +41,10 @@ def generate_port_mapping(mode,
         # Check for reversed variants:
         if 'odd_reversed' in mode:
             odd_ports.reverse()
+            odd_reversed = True  # Mark the odd block as reversed
         if 'even_reversed' in mode:
             even_ports.reverse()
+            even_reversed = True  # Mark the even block as reversed
 
         ports1 = odd_ports
         ports2 = even_ports
@@ -60,6 +64,8 @@ def generate_port_mapping(mode,
             port_counter_in_block = 0
 
         leds = list(range(base_idx, base_idx + leds_per_port))
+        if odd_reversed:  # Reverse LEDs only for odd_reversed
+            leds = leds[::-1]
         result[p] = leds
 
         base_idx += leds_per_port
@@ -77,6 +83,8 @@ def generate_port_mapping(mode,
                 port_counter_in_block = 0
 
             leds = list(range(base_idx, base_idx + leds_per_port))
+            if even_reversed:  # Reverse LEDs only for even_reversed
+                leds = leds[::-1]
             result[p] = leds
 
             base_idx += leds_per_port
