@@ -54,7 +54,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Main Loop - Fix 5" -m "POE Status sollte gehen"
+git commit -a -m "Main Loop - Fix 6" -m "Blink Cycle aktualisiert"
 
 
 ERLEDIGT:
