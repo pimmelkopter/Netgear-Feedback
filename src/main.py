@@ -161,7 +161,7 @@ def main():
         token = r_login.json()['login']['token']
     except Exception as e:
         print(f"Login failed => Exiting: {e}")
-        sys.exit(1)
+        cleanup_and_exit()
 
     print("Login successful. Token acquired.")
 
@@ -276,7 +276,7 @@ def main():
                 strip.setPixelColor(sec, Color(255,255,255))
             strip.show()
             time.sleep(1)
-        print("Script exiting now.")
+        print("Script exiting now. 10s should have passed")
         sys.stdout.flush()
         sys.exit(1)
 

@@ -50,7 +50,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Fehlerbehebung" -m "stflush eingeführt für exit"
+git commit -a -m "Fehlerbehebung 2" -m "sys.exit ausschließlich über cleanupskript - also immer 10s pause"
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
 
