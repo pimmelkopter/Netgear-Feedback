@@ -70,11 +70,11 @@ def get_port_status_color(speed, poe_active, blink_on):
     if speed == 5:
         base_color = (0, 255, 0)   # green
     elif speed == 4:
-        base_color = (255, 255, 0) # yellow
+        base_color = (255, 165, 0) # yellow
     elif speed == 0:
         base_color = (0,0,0)       # black for no link
     else:
-        base_color = (255, 255, 0) # yellow for unknown speed
+        base_color = (255, 165, 0) # yellow for unknown speed
 
     # If PoE is active and speed>0, we blink between base_color and Blue
     # If speed=0 => everything is black anyway.
@@ -273,11 +273,13 @@ def main():
                 raw_speed = stats_data.get("speed", -1)
                 if raw_speed == 7:
                     return 5  # 5 => "Gigabit" (für deine Logik)
-                elif raw_speed == 6:
+                elif raw_speed == 3:
                     return 4  # 4 => "100Mbit"
+                elif raw_speed == 130:
+                    return 0
                 else:
                     # fallback => unknown => treat as 4 or 0?
-                    return 0
+                    return 4
                 
             def parse_poe(stats_data):
                 poe_code = stats_data.get("poeStatus", 0)
@@ -320,13 +322,18 @@ def main():
                     if 0 <= led_idx_1 < led_count:
                         strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
 
-                    # Speed/PoE
-                    speed = port_info_cache[port_id]["speed"]
-                    poe   = port_info_cache[port_id]["poe_active"]
-                    (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                    # LED #2 -> Speed/PoE
                     led_idx_2 = leds_for_port[1]
                     if 0 <= led_idx_2 < led_count:
-                        strip.setPixelColor(led_idx_2, Color(sr, sg, sb))
+                        stat_cycle_mod = blink_cycle % 4  # 4-cycle pattern: 2 cycles speed, 2 cycles PoE
+                        if stat_cycle_mod < 2:
+                            speed = port_info_cache[port_id]["speed"]
+                            (sr, sg, sb) = get_port_status_color(speed, poe_active=False, blink_on=blink_on)
+                            strip.setPixelColor(led_idx_2, Color(sr, sg, sb))
+                        else:
+                            poe = port_info_cache[port_id]["poe_active"]
+                            (pr, pg, pb) = get_port_status_color(speed=0, poe_active=poe, blink_on=blink_on)
+                            strip.setPixelColor(led_idx_2, Color(pr, pg, pb))
                 else:
                     # only 1 LED mapped => cycle approach
                     led_idx_1 = leds_for_port[0]
@@ -334,11 +341,16 @@ def main():
                         cycle_mod = blink_cycle % 16
                         if cycle_mod < 10:
                             strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
-                        else:
+                        elif cycle_mod % 4 < 2:
+                            # 6 cycles alternating speed (2 cycles each)
                             speed = port_info_cache[port_id]["speed"]
-                            poe   = port_info_cache[port_id]["poe_active"]
-                            (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                            (sr, sg, sb) = get_port_status_color(speed, poe_active=False, blink_on=blink_on)
                             strip.setPixelColor(led_idx_1, Color(sr, sg, sb))
+                        else:
+                            # 6 cycles alternating PoE (2 cycles each)
+                            poe = port_info_cache[port_id]["poe_active"]
+                            (pr, pg, pb) = get_port_status_color(speed=0, poe_active=poe, blink_on=blink_on)
+                            strip.setPixelColor(led_idx_1, Color(pr, pg, pb))
 
             strip.show()
 
