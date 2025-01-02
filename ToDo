@@ -1,9 +1,7 @@
 ✅ - Aufräumen
     - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
-
-TODO while true schleife mit untershciedlichem interval für leds und api abfragen
-TODO port_status true umbenennen
-TODO !! (r_val, g_val...) in vcol umbenennen? und vlan_color->port_info_cache
+✅ - zwei unterschiedliche Tempi für schleifen
+TODO - Port stats sind umbenannt
 TODO OBB
 TODO cfg raussuchen für VLAN Farben {{baseUrl}}/device_config?file=running-config, schreibt die in Config für Anpassung - true beim ersten run, wird dann auf false gesetzt
     Namen werden auch angezeigt.
@@ -15,6 +13,7 @@ TODO - Link status
 
 TODO - mehr in journal schreiben oder python info und echo print
 
+TODO - anderer Networkmanager auch integrieren
 
 OOB ja viel praktischer
   "oob": false,
@@ -54,7 +53,7 @@ pi raspberry
 
 Commit:
 
-git commit -a -m "Split main Loop" -m "Main Loop hat jetzt ein Timing für API Requests und eins für LED Aktualisierung"
+git commit -a -m "Main Loop" -m "Bricht jetzt ab wenn swfg config nicht erreichbar" -m "Sollte bei Port_stats=false beide Ports mit VLAN belegen, bei True wechseln"
 
 
 ERLEDIGT:

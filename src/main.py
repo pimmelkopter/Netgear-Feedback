@@ -18,10 +18,7 @@ from .utils import (
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def ping_ip(ip):
-    """
-    Sends a single ping to check if the given IP is reachable.
-    Uses '-c 1' (1 packet) and '-W 0.4' (0.4s timeout).
-    """
+    """ Sends one ping with 0.4s timeout. Returns True if reachable. """
     return (
         subprocess.call(
             ['ping', '-c', '1', '-W', '0.4', ip],
@@ -32,9 +29,8 @@ def ping_ip(ip):
 
 def scan_for_switch(subnet_prefix, start, end, strip=None, led_count=48):
     """
-    Scans the IP range [start..end] under subnet_prefix (e.g. "10.18.254").
-    If 'strip' is provided, shows a white progress bar over 'led_count' LEDs.
-    Returns the first IP that responds to ping or None if none found.
+    Scans IP range [start..end] in 'subnet_prefix' (e.g. "10.18.254").
+    If 'strip' is given, shows a white progress bar. Returns first IP or None.
     """
     total = end - start + 1
     scanned = 0
@@ -62,27 +58,28 @@ def scan_for_switch(subnet_prefix, start, end, strip=None, led_count=48):
 
 def get_port_status_color(speed, poe_active, blink_on):
     """
-    speed: e.g. 5 => Gigabit, 4 => 100 Mbit, etc.
-    poe_active: bool, True if PoE is active.
-    blink_on: bool, toggling for blink effect.
-
-    Returns an (r,g,b) tuple for the second LED.
+    For LED #2, returns (r,g,b) depending on speed & PoE, plus blinking logic.
+    speed=5 => gigabit -> green
+    speed=4 => 100Mbit -> yellow
+    speed=0 => black
+    if poe_active => blink between base_color <-> blue
+    else => solid base_color
+    blink_on => toggles color if blinking
     """
-    # Determine base color (if speed=5 => green, if speed=4 => yellow, else black).
     if speed == 5:
         base_color = (0, 255, 0)   # green
     elif speed == 4:
         base_color = (255, 255, 0) # yellow
     elif speed == 0:
-        base_color = (0,0,0)
+        base_color = (0,0,0)       # black for no link
     else:
-        base_color = (255, 255, 0)     # black for no link or unknown speed
+        base_color = (255, 255, 0)     # yellow for unknown speed
 
     # If PoE is active and speed>0, we blink between base_color and Blue
     # If speed=0 => everything is black anyway.
     if poe_active and base_color != (0,0,0):
         # blink_on => base_color, else => Blue
-        return base_color if blink_on else (0, 0,255)
+        return base_color if blink_on else (0,0,255)
     else:
         # Not PoE or no link => just base_color (solid, no blink)
         return base_color
@@ -104,7 +101,8 @@ def main():
     start = config.get('scan_range_start', 10)
     end = config.get('scan_range_end', 255)
     subnet_prefix = config.get('scan_base', '10.18.254')
-    port_stats_on_led_2 = config.get('port_stats_on_led_2', False)
+    port_stats = config.get('port_stats_on_led_2', False)
+    leds_per_port = config.get('leds_per_port', 1)
 
     # Initialize the LED strip
     strip = PixelStrip(
@@ -129,12 +127,12 @@ def main():
 
     # If ip_scan is True, try to find the first reachable switch
     if ip_scan:
-        print("Scanning the network for the first reachable switch...")
+        print("Scanning network for first reachable switch...")
         found_ip = scan_for_switch(subnet_prefix, start, end, strip=strip, led_count=led_count)
         if found_ip:
             print(f"Switch found: {found_ip}")
             switch_ip = found_ip
-            # Short success animation (all green)
+            # success flash (green)
             for i in range(led_count):
                 strip.setPixelColor(i, Color(0,255,0))
             strip.show()
@@ -167,10 +165,10 @@ def main():
         r_login.raise_for_status()
         token = r_login.json()['login']['token']
     except Exception as e:
-        print(f"Login failed: {e}")
+        print(f"Login failed => Exiting: {e}")
         sys.exit(1)
 
-    print("Login successful, token acquired.")
+    print("Login successful. Token acquired.")
 
     # Auto-detect number of ports
     auto_detect_ports = config.get('auto_detect_ports', True)
@@ -179,7 +177,7 @@ def main():
     try:
         if auto_detect_ports:
             headers["Authorization"] = f"Bearer {token}"
-            r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False)
+            r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False, timeout=3)
             r_dev.raise_for_status()
             dev_info = r_dev.json().get("device_info", {})
             port_count = int(dev_info.get("numOfPorts", port_count))
@@ -194,7 +192,6 @@ def main():
 
     # Determine LED mapping for ports
     port_led_map = parse_port_led_mapping(config)
-
     # Prepare a cache for each port, so we don't spam requests in LED-loop
     port_info_cache = {
         port_id: {
@@ -250,15 +247,15 @@ def main():
 
                         # Determine port color
                         if vlan_id in vlan_color_map:
-                            vcol = vlan_color_map[vlan_id]
+                            port_info_cache[port_id]["vlan_color"] = vlan_color_map[vlan_id]
                         else:
-                            vcol = default_vlan_color
-                        port_info_cache[port_id]["vlan_color"] = vcol
-                    except:
-                        port_info_cache[port_id]["vlan_color"] = default_vlan_color
+                            port_info_cache[port_id]["vlan_color"] = default_vlan_color
+                    except Exception as ex:
+                        print(f"Switch unreachable => Exiting: {ex}")
+                        sys.exit(1)
 
-                    # Stats (if port_stats_on_led_2)
-                    if port_stats_on_led_2:
+                    # Stats (only if port_stats_on_led_2==True)
+                    if port_stats:
                         try:
                             r_stat = requests.get(
                                 f"{base_url}/sw_portstats?portid={port_id}",
@@ -292,10 +289,18 @@ def main():
                     # VLAN color from cache
                     (vr, vg, vb) = port_info_cache[port_id]["vlan_color"]
 
-                    if len(leds_for_port) >= 2 and port_stats_on_led_2:
-                        # 2+ LEDs => LED #1 = VLAN, LED #2 = speed/poe
+                    # if port_stats_on_led_2 == False => BOTH LEDs => VLAN color
+                    if not port_stats:
+                        for led_idx in leds_for_port:
+                            if 0 <= led_idx < led_count:
+                                strip.setPixelColor(led_idx, Color(vr, vg, vb))
+                        continue  # done with this port
+
+                    # else => port_stats == True
+                    # if we have 2 or more LEDs => LED[0] = VLAN, LED[1] = Stats
+                    if len(leds_for_port) >= 2:
+                        # LED #1 -> VLAN
                         led_idx_1 = leds_for_port[0]
-                        led_idx_2 = leds_for_port[1]
                         if 0 <= led_idx_1 < led_count:
                             strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
 
@@ -303,31 +308,24 @@ def main():
                         speed = port_info_cache[port_id]["speed"]
                         poe   = port_info_cache[port_id]["poe_active"]
                         (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                        led_idx_2 = leds_for_port[1]
                         if 0 <= led_idx_2 < led_count:
                             strip.setPixelColor(led_idx_2, Color(sr, sg, sb))
 
                     else:
-                        # If only 1 LED but port_stats_on_led_2 is True => 
-                        # We do a 16-step cycle. First 10 steps => VLAN color,
-                        # next 6 steps => blink logic for speed/poe.
-                        # If port_stats_on_led_2 is false => just show VLAN.
-
+                        # only 1 LED mapped => cycle approach
                         led_idx_1 = leds_for_port[0]
                         if 0 <= led_idx_1 < led_count:
-                            if port_stats_on_led_2 and len(leds_for_port) == 1:
-                                cycle_mod = blink_cycle % 16
-                                if cycle_mod < 10:
-                                    # show VLAN
-                                    strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
-                                else:
-                                    # show port-stats blink
-                                    speed = port_info_cache[port_id]["speed"]
-                                    poe   = port_info_cache[port_id]["poe_active"]
-                                    (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
-                                    strip.setPixelColor(led_idx_1, Color(sr, sg, sb))
-                            else:
-                                # Normal case => just VLAN
+                            cycle_mod = blink_cycle % 16
+                            if cycle_mod < 10:
+                                # show VLAN
                                 strip.setPixelColor(led_idx_1, Color(vr, vg, vb))
+                            else:
+                                # show port-stats blink
+                                speed = port_info_cache[port_id]["speed"]
+                                poe   = port_info_cache[port_id]["poe_active"]
+                                (sr, sg, sb) = get_port_status_color(speed, poe, blink_on)
+                                strip.setPixelColor(led_idx_1, Color(sr, sg, sb))
 
                 strip.show()
 
