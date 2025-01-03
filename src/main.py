@@ -127,7 +127,7 @@ def main():
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
         strip.show()
-        time.sleep(1)
+        t_http.join(timeout=5)
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
         time.sleep(1)
@@ -143,8 +143,6 @@ def main():
         for i in range(led_count):
             strip.setPixelColor(i, Color(0,0,0))
         strip.show()
-        t_http.join(timeout=5)
-        t_led.join(timeout=5)
         sys.exit(1)
 
     # Indicate script is running (LED[0] = white)
@@ -304,7 +302,7 @@ def main():
 
     # Thread A => HTTP
     def http_thread():
-        while not stop_event.is_set():  #war while True
+        while True:
             time.sleep(update_interval)
             try:
                 headers["Authorization"] = f"Bearer {token}"

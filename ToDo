@@ -49,7 +49,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 11" -m "evtl werden jetzt die threads richtig beendet, das hat wohl den restart verhindert"
+git commit -a -m "Fehlerbehebung 12" -m "systemd bemerkt nicht sys.exit - nächster versuch"
 
 
 
