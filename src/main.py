@@ -128,6 +128,9 @@ def main():
             strip.setPixelColor(i, Color(255,0,0))
         strip.show()
         time.sleep(1)
+        for i in range(led_count):
+            strip.setPixelColor(i, Color(255,0,0))
+        time.sleep(1)
         # 2) count up first 10 => white
         for sec in range(10):
             if sec<led_count:

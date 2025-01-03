@@ -35,4 +35,14 @@ else
   echo "config.json nicht gefunden unter $CONFIG_FILE!"
 fi
 echo -e "\033[1;32m update.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen.\033[0m"
-sudo systemctl restart switch_monitor.service
+if systemctl is-active --quiet switch_monitor.service; then
+    echo "Service is already running. Restarting it..."
+    sudo systemctl stop switch_monitor.service
+    sudo systemctl start switch_monitor.service
+else
+    echo "Service is not running. Starting it..."
+    sudo systemctl start switch_monitor.service
+fi
+
+# Aktivierung sicherstellen
+sudo systemctl enable switch_monitor.service
