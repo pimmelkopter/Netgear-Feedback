@@ -1,15 +1,6 @@
-✅ - Aufräumen
-    - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
-✅ - zwei unterschiedliche Tempi für schleifen
-✅ - Port stats sind umbenannt
-✅ - Wenn link nicht aktiv beide ports vlan 
-✅ echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
-✅ blink aktuell nur mit Update intervall
-✅ - POE Status integrieren
-✅ - Link status
+
 TODO OBB -> geht doch über fixed? testen!
-✅ cfg raussuchen für VLAN NAMEN
-✅ - mehr in journal schreiben oder python info und echo print
+
 
 
 OOB ja viel praktischer
@@ -58,10 +49,10 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 10" -m "cleanupandexit wartet keine 10s nach led updates, update resetted den failed state - gucken obs hilft"
+git commit -a -m "Fehlerbehebung 11" -m "evtl werden jetzt die threads richtig beendet, das hat wohl den restart verhindert"
 
 
-"Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
+
 
 
 ERLEDIGT:
@@ -77,3 +68,14 @@ ERLEDIGT:
 ✅ Meine tatsächlichen VLAN IDs und Farben in meine config übernehmen, dann Test ob das funktioniert wie  gedacht
 ✅PORT Mapping - wenn Ports nicht definiert sind was passiert?
 ✅- Fehlercodes über LEDs
+✅ - Aufräumen
+    - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
+✅ - zwei unterschiedliche Tempi für schleifen
+✅ - Port stats sind umbenannt
+✅ - Wenn link nicht aktiv beide ports vlan 
+✅ echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
+✅ blink aktuell nur mit Update intervall
+✅ - POE Status integrieren
+✅ - Link status
+✅ cfg raussuchen für VLAN NAMEN
+✅ - mehr in journal schreiben oder python info und echo print

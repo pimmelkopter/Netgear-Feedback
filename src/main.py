@@ -143,6 +143,8 @@ def main():
         for i in range(led_count):
             strip.setPixelColor(i, Color(0,0,0))
         strip.show()
+        t_http.join(timeout=5)
+        t_led.join(timeout=5)
         sys.exit(1)
 
     # Indicate script is running (LED[0] = white)
