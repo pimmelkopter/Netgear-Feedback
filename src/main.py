@@ -84,7 +84,6 @@ def get_port_status_color(speed, poe_active, blink_on):
             r, g, b = base_color
             return (r // 2, g // 2, b // 2)
 
-
 def main():
     config = load_config()
     secrets = load_secrets()
@@ -117,6 +116,28 @@ def main():
         ws.WS2812_STRIP
     )
     strip.begin()
+
+    def cleanup_and_exit():
+        print("Error => Show all red for 1s, then 10s wait with first 10leds white => exit.")
+        sys.stdout.flush()
+        # 1) all red
+        for i in range(led_count):
+            strip.setPixelColor(i, Color(255,0,0))
+        strip.show()
+        time.sleep(1)
+        # 2) count up first 10 => white
+        for sec in range(10):
+            if sec<led_count:
+                strip.setPixelColor(sec, Color(255,255,255))
+            strip.show()
+            time.sleep(1)
+        time.sleep(10)
+        print("Script exiting now. 10s should have passed")
+        for i in range(led_count):
+            strip.setPixelColor(i, 0)
+        strip.show()
+        sys.stdout.flush()
+        sys.exit(1)
 
     # Indicate script is running (LED[0] = white)
     strip.setPixelColor(0, Color(255,255,255))
@@ -224,12 +245,12 @@ def main():
                     if color_key not in config:
                         config[color_key] = () #TODO
             if found_vlans:
-                    from .utils import update_vlan_colors_from_map_and_random
+                    from src.utils import update_vlan_colors_from_map_and_random
                     config = update_vlan_colors_from_map_and_random(config, found_vlans)
                     # set scan_vlans => false
                     config["scan_vlans"] = False
                     # now write config to disk
-                    from .utils import CONFIG_PATH
+                    from src.utils import CONFIG_PATH
                     with open(CONFIG_PATH,"w") as cf:
                         json.dump(config,cf, indent=2)
                     print("Updated config.json with VLAN names/colors, scan_vlans => false.")
@@ -254,28 +275,6 @@ def main():
     for i in range(led_count):
         strip.setPixelColor(i, 0)
     strip.show()
-
-    def cleanup_and_exit():
-        print("Error => Show all red for 1s, then 10s wait with first 10leds white => exit.")
-        sys.stdout.flush()
-        # 1) all red
-        for i in range(led_count):
-            strip.setPixelColor(i, Color(255,0,0))
-        strip.show()
-        time.sleep(1)
-        # 2) count up first 10 => white
-        for sec in range(10):
-            if sec<led_count:
-                strip.setPixelColor(sec, Color(255,255,255))
-            strip.show()
-            time.sleep(1)
-        time.sleep(10)
-        print("Script exiting now. 10s should have passed")
-        for i in range(led_count):
-            strip.setPixelColor(i, 0)
-        strip.show()
-        sys.stdout.flush()
-        sys.exit(1)
 
     # parse all ports speed, poe, VLAN
     def parse_speed(stats_json):

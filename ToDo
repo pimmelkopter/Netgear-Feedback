@@ -58,7 +58,8 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 4" -m "klappt - jetzt werden https timeouts auch als error erfasst - evtl unnötig" -m "utils hat neue def update_vlan_colors" -m "noch mehr zeug hoffentlich passts"
+git commit -a -m "Fehlerbehebung 5" -m "cleanup and exit früher definiert" -m ".utils zu src.utils geändert"
+
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
 
