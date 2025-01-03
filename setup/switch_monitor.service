@@ -5,7 +5,6 @@ WorkingDirectory=/home/pi/Netgear-Feedback
 Environment="OPENSSL_CONF=/home/pi/Netgear-Feedback/settings/openssl.cnf"
 ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
 Restart=on-failure
-RestartSec=5
 StandardOutput=journal
 StandardError=journal
 

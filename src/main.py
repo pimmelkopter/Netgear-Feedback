@@ -133,10 +133,10 @@ def main():
             time.sleep(1)
         time.sleep(10)
         print("Script exiting now. 10s should have passed")
-        for i in range(led_count):
-            strip.setPixelColor(i, 0)
-        strip.show()
         sys.stdout.flush()
+        for i in range(led_count):
+            strip.setPixelColor(i, Color(0,0,0))
+        strip.show()
         sys.exit(1)
 
     # Indicate script is running (LED[0] = white)
@@ -194,8 +194,8 @@ def main():
             headers["Authorization"] = f"Bearer {token}"
             r_dev = requests.get(f"{base_url}/device_info", headers=headers, verify=False, timeout=3)
             r_dev.raise_for_status()
-            dev_info = r_dev.json().get("device_info", {})
-            total_ports = int(dev_info.get("numOfPorts",))
+            dev_info = r_dev.json().get("deviceInfo", {}) #not device_Info!
+            total_ports = int(dev_info.get("numOfPorts", ))
             print(f"Switch reports {total_ports} total ports.")
 
             # Apply mapping logic
@@ -216,6 +216,10 @@ def main():
             time.sleep(2)
     except Exception as e:
         print(f"Could not get device_info => fallback {port_count}. Error: {e}")
+        for i in range(led_count):
+            strip.setPixelColor(i, Color(255,0,255) if i < port_count else 0)
+        strip.show()
+        time.sleep(2)
 
     # --- Neu: optional VLAN config parse from running-config
     if scan_vlans:
@@ -241,9 +245,6 @@ def main():
                     name_key    = f"vlan{vlan_id_str}_name"
                     if name_key not in config:
                         config[name_key] = vlan_name
-                    color_key = f"vlan{vlan_id_str}_color"
-                    if color_key not in config:
-                        config[color_key] = () #TODO
             if found_vlans:
                     from src.utils import update_vlan_colors_from_map_and_random
                     config = update_vlan_colors_from_map_and_random(config, found_vlans)

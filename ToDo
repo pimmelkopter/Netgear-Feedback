@@ -58,7 +58,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 5" -m "cleanup and exit früher definiert" -m ".utils zu src.utils geändert"
+git commit -a -m "Fehlerbehebung 7" -m "sollte jetzt wieder restarten"
 
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
