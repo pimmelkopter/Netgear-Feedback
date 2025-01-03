@@ -36,8 +36,8 @@ echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"
 sleep 10
 ./update.sh
 echo "Update.sh durchgeführt"
-sudo systemctl restart switch_monitor.service
-echo -e "\033[1;32m switch_monitor Service neu gestartet \033[0m"
+echo -e "\033[1;32m switch_monitor Service neu gestartet durch update.sh \033[0m"
 sleep 10
 sudo systemctl status switch_monitor.service --no-pager
+sleep 2
 sudo journalctl -b -u switch_monitor.service --no-pager --since -10m --until +30s

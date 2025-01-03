@@ -104,6 +104,8 @@ def main():
     leds_per_port    = config.get('leds_per_port', 1)
     scan_vlans       = config.get('scan_vlans', False)
 
+    stop_event       = threading.Event()
+
     # Init LED strip
     strip = PixelStrip(
         led_count,
@@ -120,6 +122,7 @@ def main():
     def cleanup_and_exit():
         print("Error => Show all red for 1s, then 10s wait with first 10leds white => exit.")
         sys.stdout.flush()
+        stop_event.set()
         # 1) all red
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
@@ -296,7 +299,7 @@ def main():
 
     # Thread A => HTTP
     def http_thread():
-        while True:
+        while not stop_event.is_set():  #war while True
             time.sleep(update_interval)
             try:
                 headers["Authorization"] = f"Bearer {token}"
@@ -329,7 +332,7 @@ def main():
     # 2) Thread B: led_thread => alle 0.1s => LED updates (blinking)
     def led_thread():
         blink_cycle = 0
-        while True:
+        while not stop_event.is_set(): #war while True
             time.sleep(0.1)
             blink_cycle += 1
             blink_on = ((blink_cycle % 2) == 0)  # toggles at 5Hz
