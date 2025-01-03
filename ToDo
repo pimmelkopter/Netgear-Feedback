@@ -58,7 +58,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 9" -m "cleanupandexit wartet zwischendurch kurz" -m "update stoppt und startet statt restart - hoffentlich klappt so restart on failure"
+git commit -a -m "Fehlerbehebung 10" -m "cleanupandexit wartet keine 10s nach led updates, update resetted den failed state - gucken obs hilft"
 
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"

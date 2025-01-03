@@ -137,7 +137,7 @@ def main():
                 strip.setPixelColor(sec, Color(255,255,255))
             strip.show()
             time.sleep(1)
-        time.sleep(10)
+        time.sleep(1)
         print("Script exiting now. 10s should have passed")
         sys.stdout.flush()
         for i in range(led_count):

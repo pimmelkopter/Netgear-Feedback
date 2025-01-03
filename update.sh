@@ -38,9 +38,11 @@ echo -e "\033[1;32m update.sh: Netzwerk-Konfiguration mit NetworkManager abgesch
 if systemctl is-active --quiet switch_monitor.service; then
     echo "Service is already running. Restarting it..."
     sudo systemctl stop switch_monitor.service
+    sudo systemctl reset-failed switch_monitor.service
     sudo systemctl start switch_monitor.service
 else
     echo "Service is not running. Starting it..."
+    sudo systemctl reset-failed switch_monitor.service
     sudo systemctl start switch_monitor.service
 fi
 
