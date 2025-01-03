@@ -160,6 +160,50 @@ def parse_vlan_color_map(mapping_str):
             pass
     return result
 
+def update_vlan_colors_from_map_and_random(config, vlan_ids):
+    """
+    1) Parse config["vlan_color_map"] => e.g. '10:255,0,0;11:0,255,0'
+       into a dict, e.g. {10:(255,0,0), 11:(0,255,0)}
+    2) For each VLAN in vlan_ids:
+         - if f"vlan{v}_color" is already in config => skip
+         - else if 'vlan_color_map' has an entry => use that
+         - else => random color
+       Then write config[f"vlan{v}_color"] = "r,g,b" as string
+    """
+    # 1) parse the existing global vlan_color_map string from config
+    global_map_str = config.get("vlan_color_map", "")
+    global_map = {}
+    if global_map_str:
+        pairs = global_map_str.split(";")
+        for p in pairs:
+            if ":" not in p:
+                continue
+            vid_str, rgb_str = p.split(":", 1)
+            try:
+                vid = int(vid_str.strip())
+                r,g,b = [int(x.strip()) for x in rgb_str.split(",")]
+                global_map[vid] = (r,g,b)
+            except:
+                pass
+
+    import random
+    for v in vlan_ids:
+        color_key = f"vlan{v}_color"
+        if color_key in config:
+            # already present => skip
+            continue
+        # else check if global_map has it
+        if v in global_map:
+            (r,g,b) = global_map[v]
+        else:
+            # random color
+            r = random.randint(0,255)
+            g = random.randint(0,255)
+            b = random.randint(0,255)
+        config[color_key] = f"{r},{g},{b}"
+
+    return config
+
 def parse_rgb_string(rgb_str):
     """Parses e.g. '255,0,0' => (255,0,0) or fallback => (0,0,255)."""
     parts = [c.strip() for c in rgb_str.split(',')]

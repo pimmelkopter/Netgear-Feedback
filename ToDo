@@ -2,17 +2,15 @@
     - Setup Scripte trennen und in eigenen Ordner    - utils verschlanken - so dass ein generator alle logiken kann
 ✅ - zwei unterschiedliche Tempi für schleifen
 ✅ - Port stats sind umbenannt
-TODO - Wenn link nicht aktiv beide ports vlan 
+✅ - Wenn link nicht aktiv beide ports vlan 
 ✅ echte response zu port stats anschauen, was zeigt link power - bei single led wechsel zwischen vlan und status
 ✅ blink aktuell nur mit Update intervall
 ✅ - POE Status integrieren
 ✅ - Link status
 TODO OBB -> geht doch über fixed? testen!
-TODO cfg raussuchen für VLAN NAMEN
+✅ cfg raussuchen für VLAN NAMEN
+✅ - mehr in journal schreiben oder python info und echo print
 
-TODO - mehr in journal schreiben oder python info und echo print
-
-TODO - anderer Networkmanager auch integrieren
 
 OOB ja viel praktischer
   "oob": false,
@@ -38,23 +36,29 @@ TODO - Portierung auf ESP32
     - ESP32 main.py Generator aus einer config.json?
     - OTA Update für ESP32?
 
+TODO - nochmal aufräumen - Imports und variablen bündeln, einheitliche bezeichnungen
+
 
 Ideen/ checken:
 - UI mit LED-Buttons + TFT + Push/Turn-Encoder
 - update switch - kann man ssl handshake safe machen? sonst an Netgear schreiben
+- anderer Networkmanager auch integrieren
 
 Notizen
 pi4.local 
 192.168.0.1
 pi raspberry
 
-Nochmal damit du meine Logik verstehst: wenn scan_vlan true ist soll das main script einmal danach scannen und dann die variable auf false setzen und die VLAN IDs egal ob einstellig oder mehrstellig in die config eintragen und den Namen dazu. Dann soll es utils aufrufen, das dann probiert die Farben zuerst aus dem mapping string zu zeiehn und zu den jeweiligen vlans einzutragen und nur wenn es vlans gibt, die keine farbe definiert haben dort einen zufallswert eintragen. 
 
-Die Haupt-HTTP soll bei jedem Update Interval die gesamte Abfrage machen und wieder alle POE/Speed und VLAN daten im cache updaten, aus dem dann die der LED-Thread die Infos zieht. Das klappt aktuell auch noch nicht
+zeigt nicht mehr die Port-Anzahl an
+Aber Ports aktualisieren sich nach 5s
+sollte bei exit kurz alle schwarz machen!
+
+skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen richtig aus, startet aber im hintergrund tausende male neu 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 3" -m "sys.exit ausschließlich über cleanupskript - also immer 10s pause, neuer versuch"
+git commit -a -m "Fehlerbehebung 4" -m "klappt - jetzt werden https timeouts auch als error erfasst - evtl unnötig" -m "utils hat neue def update_vlan_colors" -m "noch mehr zeug hoffentlich passts"
 
 "Skript sollte jetzt nicht mehr pausenlos neustarten und hoffentlich zuerst vlan farben ziehen und dann mit random auffüllen und sich niht dauernd neu starten"
 

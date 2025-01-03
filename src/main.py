@@ -4,12 +4,11 @@ import sys
 import subprocess
 import urllib3
 import threading
-import random   # für zufällige Farben, falls gewünscht
 import json
 from rpi_ws281x import PixelStrip, Color, ws
 
 # Local imports from your utils.py
-from .utils import (
+from src.utils import (
     load_config,
     load_secrets,
     parse_port_led_mapping,
@@ -44,7 +43,7 @@ def scan_for_switch(subnet_prefix, start, end, strip=None, led_count=48):
         candidate = f"{subnet_prefix}.{i}"
         progress = int((scanned / total) * led_count)
 
-        # Update progress bar on the LED strip (white for scanned portion)
+        # Update progress bar on the LED strip (white for scanned portion) #TODO für ESPs entfernen
         if strip is not None:
             for led_i in range(led_count):
                 color = Color(255,255,255) if led_i < progress else 0
@@ -189,11 +188,11 @@ def main():
                 port_count = 40
 
             print(f"Using {port_count} ports based on total_ports={total_ports}.")
-                # Show port count in blue for 1s
+                # Show port count in blue for 2s
             for i in range(led_count):
                 strip.setPixelColor(i, Color(0,0,255) if i < port_count else 0)
             strip.show()
-            time.sleep(1.0)
+            time.sleep(2)
     except Exception as e:
         print(f"Could not get device_info => fallback {port_count}. Error: {e}")
 
@@ -209,37 +208,31 @@ def main():
             # parse lines => look for 'vlan name XX "SOME"' pattern
             import re
             vlan_name_pattern = re.compile(r'^\s*vlan\s+name\s+(\d+)\s+"([^"]+)"')
-            found_something = False
+            found_vlans = []
 
             for line in lines:
                 m = vlan_name_pattern.match(line.strip())
                 if m:
-                    found_something = True
                     vlan_id_str = m.group(1)
                     vlan_name   = m.group(2)
                     # set config["vlanXX_name"] = ...
-                    key_name  = f"vlan{vlan_id_str}_name"
-                    config[key_name] = vlan_name
-
-                    # set config["vlanXX_color"] = random or default
-                    # falls user schon config hat => nicht überschreiben
+                    found_vlans.append(int(vlan_id_str))
+                    name_key    = f"vlan{vlan_id_str}_name"
+                    if name_key not in config:
+                        config[name_key] = vlan_name
                     color_key = f"vlan{vlan_id_str}_color"
                     if color_key not in config:
-                        # generate random color or do a simple next color
-                        # z.B. random R,G,B up to 255
-                        r_ = random.randint(0,255)
-                        g_ = random.randint(0,255)
-                        b_ = random.randint(0,255)
-                        config[color_key] = f"{r_},{g_},{b_}"
-
-            if found_something:
-                # set scan_vlans => false
-                config["scan_vlans"] = False
-                # now write config to disk
-                from .utils import CONFIG_PATH
-                with open(CONFIG_PATH,"w") as cf:
-                    json.dump(config,cf, indent=2)
-                print("Updated config.json with VLAN names/colors, scan_vlans => false.")
+                        config[color_key] = () #TODO
+            if found_vlans:
+                    from .utils import update_vlan_colors_from_map_and_random
+                    config = update_vlan_colors_from_map_and_random(config, found_vlans)
+                    # set scan_vlans => false
+                    config["scan_vlans"] = False
+                    # now write config to disk
+                    from .utils import CONFIG_PATH
+                    with open(CONFIG_PATH,"w") as cf:
+                        json.dump(config,cf, indent=2)
+                    print("Updated config.json with VLAN names/colors, scan_vlans => false.")
             else:
                 print("No VLAN lines found in running-config?")
         except Exception as ex:
@@ -278,6 +271,9 @@ def main():
             time.sleep(1)
         time.sleep(10)
         print("Script exiting now. 10s should have passed")
+        for i in range(led_count):
+            strip.setPixelColor(i, 0)
+        strip.show()
         sys.stdout.flush()
         sys.exit(1)
 
@@ -318,11 +314,14 @@ def main():
                     poe  = parse_poe(item)
                     # determine VLAN color from item["vlans"]
                     vlans_list = item.get("vlans",[])
-                    c = parse_vlan_color_for_port(vlans_list, config, default_vlan_color, vlan_color_map=None)
+                    c = parse_vlan_color_for_port(vlans_list, config, default_vlan_color, vlan_color_map)
 
                     port_info_cache[pid]["speed"]      = s
                     port_info_cache[pid]["poe_active"] = poe
                     port_info_cache[pid]["vlan_color"] = c
+            except requests.exceptions.Timeout:
+                print("Timeout occurred while trying to connect to the switch.")
+                cleanup_and_exit()
             except Exception as ex:
                 print(f"HTTP error => Exiting: {ex}")
                 cleanup_and_exit()
