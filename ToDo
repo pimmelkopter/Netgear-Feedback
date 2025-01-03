@@ -34,6 +34,7 @@ Ideen/ checken:
 - UI mit LED-Buttons + TFT + Push/Turn-Encoder
 - update switch - kann man ssl handshake safe machen? sonst an Netgear schreiben
 - anderer Networkmanager auch integrieren
+config json vlan name und farbe direkt untereinander
 
 Notizen
 pi4.local 
@@ -49,7 +50,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 12" -m "systemd bemerkt nicht sys.exit - nächster versuch"
+git commit -a -m "Fehlerbehebung 13" -m "systemd bemerkt nicht sys.exit - nächster versuch"
 
 
 
