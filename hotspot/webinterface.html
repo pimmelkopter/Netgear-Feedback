@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Switch VLAN Management</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
+    <style>
+        .port-button.selected, .vlan-button.selected {
+            border: 2px solid #000;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">VLAN Configuration</h1>
+            <div class="flex space-x-4">
+                <span class="text-sm">
+                    WiFi: <span id="wifi-status" class="font-bold"></span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Port Grid -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Ports</h2>
+            <div class="grid grid-cols-12 gap-2" id="port-grid">
+                <!-- Erste Reihe: Ports 1,3,5... -->
+                <div class="col-span-12 grid grid-cols-12 gap-2 mb-4">
+                    <template id="odd-ports">
+                        <!-- Wird durch JavaScript gefüllt -->
+                    </template>
+                </div>
+                <!-- Zweite Reihe: Ports 2,4,6... -->
+                <div class="col-span-12 grid grid-cols-12 gap-2">
+                    <template id="even-ports">
+                        <!-- Wird durch JavaScript gefüllt -->
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- VLAN List -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">VLANs</h2>
+            <div class="grid grid-cols-6 gap-4" id="vlan-grid">
+                <!-- Wird durch JavaScript gefüllt -->
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-end space-x-4">
+            <button id="apply-btn" onclick="applyChanges()" 
+                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                    disabled>
+                Apply Changes
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let selectedPort = null;
+        let selectedVlan = null;
+        let currentPortConfigs = {};
+        
+        // Port Button Template
+        function createPortButton(port) {
+            const btn = document.createElement('button');
+            btn.className = 'port-button p-2 rounded text-center';
+            btn.setAttribute('data-port', port);
+            btn.onclick = () => selectPort(port);
+            btn.innerHTML = `
+                <div class="font-bold">Port ${port}</div>
+                <div class="text-sm" id="port-${port}-vlan">VLAN: -</div>
+            `;
+            return btn;
+        }
+
+        // VLAN Button Template
+        function createVlanButton(vlan, name, color) {
+            const btn = document.createElement('button');
+            btn.className = 'vlan-button p-2 rounded text-center';
+            btn.setAttribute('data-vlan', vlan);
+            btn.onclick = () => selectVlan(vlan);
+            btn.style.backgroundColor = color;
+            btn.innerHTML = `
+                <div class="font-bold">VLAN ${vlan}</div>
+                <div class="text-sm">${name}</div>
+            `;
+            return btn;
+        }
+
+        // Port Selection
+        async function selectPort(port) {
+            const oldBtn = document.querySelector('.port-button.selected');
+            if (oldBtn) oldBtn.classList.remove('selected');
+            
+            const btn = document.querySelector(`[data-port="${port}"]`);
+            btn.classList.add('selected');
+            selectedPort = port;
+            
+            if (selectedVlan) {
+                document.getElementById('apply-btn').disabled = false;
+            }
+            
+            // Fetch current port config
+            const response = await fetch(`/api/switch/port/${port}`);
+            currentPortConfigs[port] = await response.json();
+        }
+
+        // VLAN Selection
+        function selectVlan(vlan) {
+            const oldBtn = document.querySelector('.vlan-button.selected');
+            if (oldBtn) oldBtn.classList.remove('selected');
+            
+            const btn = document.querySelector(`[data-vlan="${vlan}"]`);
+            btn.classList.add('selected');
+            selectedVlan = vlan;
+            
+            if (selectedPort) {
+                document.getElementById('apply-btn').disabled = false;
+            }
+        }
+
+        // Apply Changes
+        async function applyChanges() {
+            if (!selectedPort || !selectedVlan) return;
+            
+            const config = currentPortConfigs[selectedPort];
+            config.switchPortConfig.portVlanId = selectedVlan;
+            
+            try {
+                const response = await fetch(`/api/switch/port/${selectedPort}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                if (result.resp.status === 'success') {
+                    // Update UI
+                    document.getElementById(`port-${selectedPort}-vlan`).textContent = 
+                        `VLAN: ${selectedVlan}`;
+                    
+                    // Reset selection
+                    document.querySelector('.port-button.selected')?.classList.remove('selected');
+                    document.querySelector('.vlan-button.selected')?.classList.remove('selected');
+                    selectedPort = null;
+                    selectedVlan = null;
+                    document.getElementById('apply-btn').disabled = true;
+                }
+            } catch (error) {
+                console.error('Error applying changes:', error);
+            }
+        }
+
+        // Initial Load
+        async function initializeInterface() {
+            // Load VLANs
+            const vlans = await fetch('/api/vlans').then(r => r.json());
+            const vlanGrid = document.getElementById('vlan-grid');
+            vlans.forEach(v => {
+                vlanGrid.appendChild(createVlanButton(v.id, v.name, v.color));
+            });
+            
+            // Create Port Grid
+            const oddPorts = [1,3,5,7,9,11,13,15,17,19,21,23];
+            const evenPorts = [2,4,6,8,10,12,14,16,18,20,22,24];
+            
+            const oddTemplate = document.getElementById('odd-ports');
+            oddPorts.forEach(port => {
+                oddTemplate.parentNode.appendChild(createPortButton(port));
+            });
+            
+            const evenTemplate = document.getElementById('even-ports');
+            evenPorts.forEach(port => {
+                evenTemplate.parentNode.appendChild(createPortButton(port));
+            });
+            
+            // Load initial port configs
+            const ports = await fetch('/api/switch/ports').then(r => r.json());
+            ports.forEach(p => {
+                currentPortConfigs[p.id] = p;
+                document.getElementById(`port-${p.id}-vlan`).textContent = 
+                    `VLAN: ${p.switchPortConfig.portVlanId}`;
+            });
+        }
+
+        // Start
+        initializeInterface();
+    </script>
+</body>
+</html>
