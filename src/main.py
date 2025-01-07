@@ -1,6 +1,7 @@
 import time
 import requests
 import sys
+import os
 import subprocess
 import urllib3
 import threading
@@ -127,7 +128,6 @@ def main():
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
         strip.show()
-        t_http.join(timeout=5)
         for i in range(led_count):
             strip.setPixelColor(i, Color(255,0,0))
         time.sleep(1)
@@ -143,7 +143,9 @@ def main():
         for i in range(led_count):
             strip.setPixelColor(i, Color(0,0,0))
         strip.show()
-        sys.exit(1)
+        print("testprint")
+        sys.stdout.flush()
+        os._exit(1)
 
     # Indicate script is running (LED[0] = white)
     strip.setPixelColor(0, Color(255,255,255))

@@ -50,7 +50,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Fehlerbehebung 13" -m "systemd bemerkt nicht sys.exit - nächster versuch"
+git commit -a -m "OS Exit statt sys" -m "für test os._exit - vielleicht klappt das"
 
 
 
