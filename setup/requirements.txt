@@ -1,4 +1,8 @@
-requests
-rpi_ws281x
+flask>=2.0.0
+requests>=2.26.0
+urllib3>=1.26.0
+rpi-ws281x>=4.3.0
+python-networkmanager>=2.2.0
+cryptography>=3.4.0  # für SSL/TLS
+dnspython>=2.1.0    # für DNS-Handling
 pillow
-urllib3

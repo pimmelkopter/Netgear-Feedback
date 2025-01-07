@@ -1,13 +1,15 @@
+[Unit]
+Description=Switch Monitor Service
+After=network.target
+
 [Service]
 Type=simple
 WorkingDirectory=/home/pi/Netgear-Feedback
 
 Environment="OPENSSL_CONF=/home/pi/Netgear-Feedback/settings/openssl.cnf"
-ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 -m src.main
-Restart=on-failure
+ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 -m src.main hotspot.flask-server
+Restart=always
 RestartSec=2
-StartLimitIntervalSec=0
-StartLimitBurst=0
 StandardOutput=journal
 StandardError=journal
 

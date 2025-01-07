@@ -1,9 +1,14 @@
+# hotspot_service.py
+import time
+import subprocess
 import random
 import string
 import subprocess
 import os
+import signal
+import sys
 
-class HotspotManager:
+class HotspotService:
     def __init__(self):
         self.ssid = self._generate_ssid()
         self.password = "Aud1luma"
@@ -33,7 +38,7 @@ no-resolv
         """Configure and start the WiFi hotspot using nmcli with captive portal"""
         try:
             # Set WiFi country
-            subprocess.run(["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"])
+            subprocess.run(["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"], check=True)
             
             # Remove existing connection if exists
             subprocess.run(["sudo", "nmcli", "connection", "delete", self.connection_name], 
@@ -65,6 +70,8 @@ no-resolv
             
             for cmd in commands:
                 subprocess.run(cmd, check=True)
+            print(f"Hotspot started with SSID: {self.ssid}")
+            return True
 
             # Setup dnsmasq for captive portal
             self._setup_dnsmasq()
@@ -82,14 +89,16 @@ no-resolv
             return True, self.ssid
 
         except subprocess.CalledProcessError as e:
-            return False, str(e)
+            print(f"Error setting up hotspot: {e}")
+            return False
 
-    def stop_hotspot(self):
-        """Stop the WiFi hotspot and clean up"""
+    def cleanup(self):
+        """Cleanup when service stops"""
         try:
             # Stop network connection
             subprocess.run(["sudo", "nmcli", "connection", "down", self.connection_name])
-            
+            subprocess.run(["sudo", "nmcli", "connection", "delete", self.connection_name])
+
             # Clear iptables rules
             subprocess.run(["sudo", "iptables", "-F"])
             subprocess.run(["sudo", "iptables", "-t", "nat", "-F"])
@@ -111,3 +120,45 @@ no-resolv
             return self.connection_name in output
         except:
             return False
+
+    def signal_handler(self, signum, frame):
+        """Handle shutdown signals"""
+        print("Received shutdown signal")
+        self.running = False
+
+    def run(self):
+        """Main service loop"""
+        signal.signal(signal.SIGTERM, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+        while self.running:
+            if not self.setup_hotspot():
+                print("Failed to start hotspot, retrying in 30 seconds...")
+                time.sleep(30)
+                continue
+
+            # Monitor hotspot status
+            while self.running:
+                try:
+                    # Check if connection is still active
+                    result = subprocess.run(
+                        ["nmcli", "-t", "-f", "GENERAL.STATE", "connection", "show", self.connection_name],
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if "activated" not in result.stdout.lower():
+                        print("Hotspot connection lost, restarting...")
+                        break
+
+                except subprocess.CalledProcessError:
+                    print("Error checking hotspot status, restarting...")
+                    break
+
+                time.sleep(5)
+
+        self.cleanup()
+
+if __name__ == "__main__":
+    service = HotspotService()
+    service.run()   
