@@ -71,7 +71,6 @@ no-resolv
             for cmd in commands:
                 subprocess.run(cmd, check=True)
             print(f"Hotspot started with SSID: {self.ssid}")
-            return True
 
             # Setup dnsmasq for captive portal
             self._setup_dnsmasq()

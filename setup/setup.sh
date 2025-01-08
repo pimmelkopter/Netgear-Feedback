@@ -29,17 +29,25 @@ pip install --upgrade pip
 pip install -r "${PROJECT_DIR}/setup/requirements.txt"
 
 # Configure dnsmasq and hostapd
-echo "Configuring network services..."
-sudo systemctl unmask hostapd
-sudo systemctl enable hostapd
-sudo systemctl enable dnsmasq
+#echo "Configuring network services..."
+#sudo systemctl unmask hostapd
+#sudo systemctl enable hostapd
+#sudo systemctl enable dnsmasq
+##doppelt mit der config im hotspot.py deswegen
+sudo systemctl disable hostapd
+sudo systemctl disable dnsmasq
+sudo systemctl stop hostapd
+sudo systemctl stop dnsmasq
+
 
 # Install systemd service files
 echo "Installing systemd services..."
 sudo cp "${PROJECT_DIR}/setup/switch_monitor.service" /etc/systemd/system/switch_monitor.service
 sudo cp "${PROJECT_DIR}/setup/hotspot.service" /etc/systemd/system/hotspot.service
+sudo cp "${PROJECT_DIR}/setup/flask.service" /etc/systemd/system/flask.service
 sudo systemctl enable switch_monitor
 sudo systemctl enable hotspot.service
+sudo systemctl enable flask.service
 
 # Set WiFi country
 echo "Setting WiFi country to DE..."

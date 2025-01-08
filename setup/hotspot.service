@@ -7,8 +7,7 @@ Requires=NetworkManager.service
 Type=simple
 User=root
 WorkingDirectory=/home/pi/Netgear-Feedback
-Environment=/home/pi/Netgear-Feedback/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 hotspot.hotspot
+ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 /home/pi/Netgear-Feedback/hotspot/hotspot.py
 Restart=always
 RestartSec=5
 
