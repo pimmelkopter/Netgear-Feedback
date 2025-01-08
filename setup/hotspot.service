@@ -5,11 +5,13 @@ Requires=NetworkManager.service
 
 [Service]
 Type=simple
-User=root
 WorkingDirectory=/home/pi/Netgear-Feedback
-ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 /home/pi/Netgear-Feedback/hotspot/hotspot.py
+Environment="PYTHONPATH=/home/pi/Netgear-Feedback"
+ExecStart=/home/pi/Netgear-Feedback/venv/bin/python3 -m hotspot.hotspot
 Restart=always
-RestartSec=5
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

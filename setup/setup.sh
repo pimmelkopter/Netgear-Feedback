@@ -10,6 +10,10 @@ echo "Installing system packages..."
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager libdbus-1-dev libdbus-glib-1-dev dbus
 
+# In setup.sh nach den apt-install Befehlen:
+echo "Removing old hotspot configuration..."
+sudo nmcli connection delete "MyHotspot" || true  # || true verhindert Fehler wenn nicht existiert
+
 # Set execute permissions
 echo "Setting executable permissions..."
 sudo chmod +x "${PROJECT_DIR}/update.sh"
@@ -43,11 +47,13 @@ sudo systemctl stop dnsmasq
 # Install systemd service files
 echo "Installing systemd services..."
 sudo cp "${PROJECT_DIR}/setup/switch_monitor.service" /etc/systemd/system/switch_monitor.service
-sudo cp "${PROJECT_DIR}/setup/hotspot.service" /etc/systemd/system/hotspot.service
-sudo cp "${PROJECT_DIR}/setup/flask.service" /etc/systemd/system/flask.service
 sudo systemctl enable switch_monitor
+# Nach dem Kopieren des switch_monitor.service:
+echo "Installing hotspot service..."
+sudo cp "${PROJECT_DIR}/setup/hotspot.service" /etc/systemd/system/hotspot.service
 sudo systemctl enable hotspot.service
-sudo systemctl enable flask.service
+sudo cp "${PROJECT_DIR}/setup/web_interface.service" /etc/systemd/system/web_interface.service
+sudo systemctl enable web_interface.service
 
 # Set WiFi country
 echo "Setting WiFi country to DE..."
@@ -66,6 +72,8 @@ fi
 sudo chown -R root:root "${PROJECT_DIR}/hotspot"
 sudo chmod 644 "${PROJECT_DIR}/hotspot/server.crt"
 sudo chmod 600 "${PROJECT_DIR}/hotspot/server.key"
+sudo chown -R pi:pi /home/pi/Netgear-Feedback
+sudo chmod -R u+rwX /home/pi/Netgear-Feedback
 
 # Reload systemd
 sudo systemctl daemon-reload

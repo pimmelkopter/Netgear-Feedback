@@ -50,7 +50,7 @@ skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen 
 
 Commit:
 
-git commit -a -m "Claude Updates" -m "claude merge für setup.sh und hotspot folder"
+git commit -a -m "Claude neu" -m "web interface usw"
 
 
 

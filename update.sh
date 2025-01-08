@@ -48,3 +48,23 @@ fi
 
 # Aktivierung sicherstellen
 sudo systemctl enable switch_monitor.service
+
+# Am Ende von update.sh:
+if systemctl is-active --quiet hotspot.service; then
+    echo "Hotspot service is running. Restarting it..."
+    sudo systemctl restart hotspot.service
+else
+    echo "Starting hotspot service..."
+    sudo systemctl start hotspot.service
+fi
+
+for service in switch_monitor hotspot web_interface; do
+    if systemctl is-active --quiet $service.service; then
+        echo "$service service is running. Restarting it..."
+        sudo systemctl restart $service.service
+    else
+        echo "Starting $service service..."
+        sudo systemctl start $service.service
+    fi
+    sudo systemctl enable $service.service
+done
