@@ -8,9 +8,10 @@ echo "Starting installation..."
 # System packages
 echo "Installing system packages..."
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager
+sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager libdbus-1-dev libdbus-glib-1-dev dbus
 
 # Set execute permissions
+echo "Setting executable permissions..."
 sudo chmod +x "${PROJECT_DIR}/update.sh"
 sudo chmod +x "${PROJECT_DIR}/setup/fixed-hotspot.sh"
 #sudo cp "${PROJECT_DIR}/settings/secrets_initial.json" "${PROJECT_DIR}/settings/secrets.json"
@@ -22,6 +23,7 @@ if [ ! -d "${PROJECT_DIR}/venv" ]; then
 fi
 
 # Activate venv and install requirements
+echo "Activating venv and installing Python packages..."
 source "${PROJECT_DIR}/venv/bin/activate"
 pip install --upgrade pip
 pip install -r "${PROJECT_DIR}/setup/requirements.txt"
@@ -31,6 +33,9 @@ echo "Configuring network services..."
 sudo systemctl unmask hostapd
 sudo systemctl enable hostapd
 sudo systemctl enable dnsmasq
+
+# Install systemd service files
+echo "Installing systemd services..."
 sudo cp "${PROJECT_DIR}/setup/switch_monitor.service" /etc/systemd/system/switch_monitor.service
 sudo cp "${PROJECT_DIR}/setup/hotspot.service" /etc/systemd/system/hotspot.service
 sudo systemctl enable switch_monitor
