@@ -35,28 +35,6 @@ else
   echo "config.json nicht gefunden unter $CONFIG_FILE!"
 fi
 echo -e "\033[1;32m update.sh: Netzwerk-Konfiguration mit NetworkManager abgeschlossen.\033[0m"
-if systemctl is-active --quiet switch_monitor.service; then
-    echo "Service is already running. Restarting it..."
-    sudo systemctl stop switch_monitor.service
-    sudo systemctl reset-failed switch_monitor.service
-    sudo systemctl start switch_monitor.service
-else
-    echo "Service is not running. Starting it..."
-    sudo systemctl reset-failed switch_monitor.service
-    sudo systemctl start switch_monitor.service
-fi
-
-# Aktivierung sicherstellen
-sudo systemctl enable switch_monitor.service
-
-# Am Ende von update.sh:
-if systemctl is-active --quiet hotspot.service; then
-    echo "Hotspot service is running. Restarting it..."
-    sudo systemctl restart hotspot.service
-else
-    echo "Starting hotspot service..."
-    sudo systemctl start hotspot.service
-fi
 
 for service in switch_monitor hotspot web_interface; do
     if systemctl is-active --quiet $service.service; then

@@ -47,13 +47,11 @@ sudo systemctl stop dnsmasq
 # Install systemd service files
 echo "Installing systemd services..."
 sudo cp "${PROJECT_DIR}/setup/switch_monitor.service" /etc/systemd/system/switch_monitor.service
-sudo systemctl enable switch_monitor
-# Nach dem Kopieren des switch_monitor.service:
-echo "Installing hotspot service..."
 sudo cp "${PROJECT_DIR}/setup/hotspot.service" /etc/systemd/system/hotspot.service
-sudo systemctl enable hotspot.service
 sudo cp "${PROJECT_DIR}/setup/web_interface.service" /etc/systemd/system/web_interface.service
-sudo systemctl enable web_interface.service
+for service in switch_monitor hotspot web_interface; do
+    sudo systemctl enable $service.service
+done
 
 # Set WiFi country
 echo "Setting WiFi country to DE..."
