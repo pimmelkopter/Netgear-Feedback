@@ -15,6 +15,9 @@ from src.utils import (
     load_config,
     load_secrets,
     parse_port_led_mapping,
+    parse_vlan_color_map,
+    parse_rgb_string,
+    parse_vlan_color_for_port,
     CONFIG_PATH
 )
 
@@ -160,7 +163,7 @@ class SwitchMonitor:
                 self.strip.setPixelColor(i, Color(255,0,255) if i < self.port_count else 0)
             self.strip.show()
             time.sleep(2)
-            return False
+            return True
 
     def scan_vlans(self):
         """Scan switch for VLAN configurations and update config"""

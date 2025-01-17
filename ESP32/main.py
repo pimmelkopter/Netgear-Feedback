@@ -53,22 +53,23 @@ class SwitchMonitor:
     def setup_network(self):
         """Setup network with fixed IP"""
         debug_print("Setting up network...")
-        self.lan = network.LAN(mdc=23, mdio=18, power=None, phy_type=network.PHY_LAN8720, phy_addr=1)
+        self.spi = SPI(2, baudrate=20000000, sck=Pin(18), mosi=Pin(23), miso=Pin(19))
+        self.w5500 = network.WIZNET5K(self.spi, Pin(5))
         
         # Aktiviere LAN
-        self.lan.active(True)
+        self.w5500.active(True)
         # Setze feste IP
-        self.lan.ifconfig(('10.18.251.1', '255.255.255.0', '10.18.251.1', '8.8.8.8'))
+        self.w5500.ifconfig(('10.18.251.1', '255.255.255.0', '10.18.251.1', '8.8.8.8'))
         
         # Warte auf Netzwerkverbindung
         timeout = 0
-        while not self.lan.isconnected() and timeout < 20:
+        while not self.w5500.isconnected() and timeout < 20:
             time.sleep(1)
             timeout += 1
             debug_print(f"Waiting for network... {timeout}")
-            
-        if self.lan.isconnected():
-            debug_print(f"Network connected: {self.lan.ifconfig()}")
+        
+        if self.w5500.isconnected():
+            debug_print(f"Network connected: {self.w5500.ifconfig()}")
         else:
             debug_print("Network connection failed!")
 

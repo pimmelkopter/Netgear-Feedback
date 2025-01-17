@@ -35,11 +35,12 @@ sudo chmod +x update.sh
 sudo chmod +x setup/setup.sh
 sudo chmod +x git-reset.sh
 
-echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"
-sleep 10
 ./setup/setup.sh
 ./update.sh
 echo "Update.sh durchgeführt"
+
+echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"
+sleep 10
 echo -e "\033[1;32m switch_monitor Service neu gestartet durch update.sh \033[0m"
 sleep 10
 sudo systemctl status switch_monitor.service --no-pager
