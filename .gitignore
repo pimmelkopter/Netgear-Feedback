@@ -9,3 +9,4 @@ ESP32
 *copy-bin*
 *esp32*
 ESP32/
+*.code-workspace
