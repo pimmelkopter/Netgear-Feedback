@@ -123,24 +123,24 @@
     </div>
 
     <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">VLANs</h2>
-      <div class="grid grid-cols-6 gap-4" id="vlan-container">
-        {% for vlan_id, color in vlan_colors.items() %}
-        <button class="vlan-button p-2 rounded text-center"
-                data-vlan="{{ vlan_id }}"
-                style="background-color: rgb({{ color }})">
-          <div class="font-bold">
-            {{ vlan_names[vlan_id]|default('VLAN ' ~ vlan_id) }}
-          </div>
-          <div class="text-sm">
-            <span class="port-count" data-vlan="{{ vlan_id }}">
-              {{ port_vlans.values()|select("equalto", vlan_id)|list|length }}
-            </span> Ports
-          </div>
-        </button>
-        {% endfor %}
+        <h2 class="text-xl font-semibold mb-4">VLANs</h2>
+        <div class="grid grid-cols-6 gap-4" id="vlan-container">
+          {% for vlan_id, color in vlan_colors.items() %}
+          <button class="vlan-button p-2 rounded text-center"
+                  data-vlan="{{ vlan_id }}"
+                  style="background-color: {{ color }}">
+            <div class="font-bold">
+              {{ vlan_names[vlan_id]|default('VLAN ' ~ vlan_id) }}
+            </div>
+            <div class="text-sm">
+              <span class="port-count" data-vlan="{{ vlan_id }}">
+                {{ port_vlans.values()|select("equalto", vlan_id)|list|length }}
+              </span> Ports
+            </div>
+          </button>
+          {% endfor %}
+        </div>
       </div>
-    </div>
 
     <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center">
       <div class="text-sm text-gray-600" id="status-message">
