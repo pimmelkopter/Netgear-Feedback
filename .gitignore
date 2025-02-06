@@ -1,7 +1,6 @@
 settings/secrets.json
-archiv
+archiv/
 ToDo
-git-reset.sh
 ESP32
 *venv
 *vscode
@@ -10,3 +9,5 @@ ESP32
 *esp32*
 ESP32/
 *.code-workspace
+backup.git/
+backup/

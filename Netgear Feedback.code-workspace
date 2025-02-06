@@ -6,5 +6,8 @@
         {
             "path": "../netgear-feedback-esp32"
         }
-    ]
+    ],
+    "settings": {
+        "liveServer.settings.multiRootWorkspaceName": "Netgear Feedback"
+    }
 }

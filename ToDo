@@ -1,7 +1,33 @@
 
 TODO OBB -> geht doch über fixed? testen!
+OOB funktioniert!! Immer 192.168.0.239
 
+switch sagt seine ip-adresse in export config: "ip address 10.18.254.150 255.0.0.0",
 
+ES GEHT ZU SPEICHERN:
+POST{{baseUrl}}/config_copy?directive=rtos
+{
+  "config_copy": {
+    "directive": "rtos"
+  }
+}
+
+BACKUP Speichern (Standardconfig)
+POST{{baseUrl}}/config_copy?directive=stob
+{
+  "config_copy": {
+    "directive": "stob"
+  }
+}
+
+Backup wiederherstellen (reset)
+POST{{baseUrl}}/config_copy?directive=btos
+{
+  "config_copy": {
+    "directive": "btos"
+  }
+}
+POST{{baseUrl}}/device_reboot
 
 OOB ja viel praktischer
   "oob": false,
@@ -46,11 +72,10 @@ zeigt nicht mehr die Port-Anzahl an
 Aber Ports aktualisieren sich nach 5s
 sollte bei exit kurz alle schwarz machen!
 
-skript startet neu auch bei fehlern und ignoriert restarttimersec, sieht außen richtig aus, startet aber im hintergrund tausende male neu 
 
 Commit:
 
-git commit -a -m "Claude neu" -m "web interface usw"
+git commit -a -m "Vollständige umstrukturierung" -m neu sortiert"
 
 
 
