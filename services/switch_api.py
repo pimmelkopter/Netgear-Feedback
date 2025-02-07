@@ -1,12 +1,8 @@
 import requests
 import logging
 import time
-import ssl
 import urllib3
 from typing import Optional, Dict, Any
-from requests.adapters import HTTPAdapter
-from urllib3.util.ssl_ import create_urllib3_context
-from urllib3.util.retry import Retry
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -15,20 +11,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class SwitchAPIError(Exception):
     pass
 
-class CustomHTTPAdapter(HTTPAdapter):
-    def init_poolmanager(self, *args, **kwargs):
-        context = create_urllib3_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        kwargs['ssl_context'] = context
-        return super().init_poolmanager(*args, **kwargs)
-
 class SwitchAPI:
     def __init__(self, progress_callback=None):
         self.config = Config()
         self.base_url = None
         self.token = None
-        self.session = self._create_session()
         self.progress_callback = progress_callback
 
     def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
@@ -48,22 +35,6 @@ class SwitchAPI:
                 continue
         return ""
 
-    def _create_session(self) -> requests.Session:
-        session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504]
-        )
-        adapter = CustomHTTPAdapter(max_retries=retry_strategy)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        session.verify = False
-        session.headers.update({
-            "Content-Type": "application/json"
-        })
-        return session
-
     def _handle_response(self, response: requests.Response) -> Dict[str, Any]:
         try:
             response.raise_for_status()
@@ -80,21 +51,21 @@ class SwitchAPI:
     def login(self) -> bool:
         try:
             headers = {"Content-Type": "application/json"}
+            login_data = {
+                "login": {
+                    "username": self.config.username,
+                    "password": self.config.password
+                }
+            }
             response = requests.post(
                 f"{self.base_url}/login",
-                json={
-                    "login": {
-                        "username": self.config.username,
-                        "password": self.config.password
-                    }
-                },
+                json=login_data,
                 headers=headers,
                 verify=False,
                 timeout=5
             )
             data = self._handle_response(response)
             self.token = data['login']['token']
-            self.session.headers['Authorization'] = f"Bearer {self.token}"
             return True
         except Exception as e:
             logger.error(f"Login failed: {e}")
@@ -107,14 +78,14 @@ class SwitchAPI:
             raise ValueError(f"Invalid VLAN ID: {vlan_id}")
 
         try:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}"
+            }
+            
             # Get current config
             url = f"{self.base_url}/swcfg_port?portid={port_id}"
-            response = requests.get(
-                url,
-                headers={"Authorization": f"Bearer {self.token}"},
-                verify=False,
-                timeout=10
-            )
+            response = requests.get(url, headers=headers, verify=False, timeout=10)
             data = self._handle_response(response)
 
             if "switchPortConfig" not in data:
@@ -124,13 +95,7 @@ class SwitchAPI:
             data["switchPortConfig"]["portVlanId"] = vlan_id
             
             # Send updated config
-            response = requests.post(
-                url,
-                json=data,
-                headers={"Authorization": f"Bearer {self.token}"},
-                verify=False,
-                timeout=10
-            )
+            response = requests.post(url, json=data, headers=headers, verify=False, timeout=10)
             self._handle_response(response)
 
             if save_config:
@@ -157,14 +122,12 @@ class SwitchAPI:
 
     def _save_via_api(self) -> bool:
         try:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}"
+            }
             url = f"{self.base_url}/config_copy?directive=rtos"
-            response = requests.post(
-                url,
-                json={},
-                headers={"Authorization": f"Bearer {self.token}"},
-                verify=False,
-                timeout=15
-            )
+            response = requests.post(url, json={}, headers=headers, verify=False, timeout=15)
             self._handle_response(response)
             logger.info("Config saved to startup-config")
             return True
@@ -179,13 +142,12 @@ class SwitchAPI:
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
         """Get info for specific port or all ports if port_id=0"""
         try:
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self.token}"
+            }
             url = f"{self.base_url}/sw_portstats?portid={port_id}"
-            response = requests.get(
-                url,
-                headers={"Authorization": f"Bearer {self.token}"},
-                verify=False,
-                timeout=5
-            )
+            response = requests.get(url, headers=headers, verify=False, timeout=5)
             data = self._handle_response(response)
             ports = data.get("switchStatsPort", [])
             return ports[0] if port_id > 0 and ports else ports
