@@ -14,6 +14,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class SwitchAPIError(Exception):
     pass
 
+class CustomHTTPAdapter(HTTPAdapter):
+    def init_poolmanager(self, *args, **kwargs):
+        context = create_urllib3_context()
+        # Enable legacy renegotiation
+        context.options &= ~ssl.OP_NO_LEGACY_SERVER_CONNECT
+        kwargs['ssl_context'] = context
+        return super().init_poolmanager(*args, **kwargs)
+
 class SwitchAPI:
     def __init__(self, progress_callback=None):
         self.config = Config()
@@ -46,7 +54,7 @@ class SwitchAPI:
             backoff_factor=0.5,
             status_forcelist=[500, 502, 503, 504]
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = CustomHTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         session.verify = False
