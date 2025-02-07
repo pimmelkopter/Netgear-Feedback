@@ -50,13 +50,6 @@ class SwitchAPI:
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         session.verify = False
-
-        urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
-        try:
-            requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
-        except AttributeError:
-            pass
-
         session.headers.update({
             "Content-Type": "application/json"
         })
@@ -83,6 +76,7 @@ class SwitchAPI:
                     "password": self.config.password
                 }
             })
+            verify=False
             data = self._handle_response(response)
             self.token = data['login']['token']
             self.session.headers['Authorization'] = f"Bearer {self.token}"
