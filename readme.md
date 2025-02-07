@@ -8,11 +8,13 @@ Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
 - **GND** -> **GND** 
 
 **How to use**
-- git clone repository
-- cd into cloned repository
-- customize your settings with: nano settings/config.json
-- create secrets.json: mv settings/secrets_initial.json settings/secrets.json
-- enter your credentials nano settings/secrets.json
+- sudo apt-get update -y && sudo apt-get upgrade -y
+- sudo apt-get install git -y
+- git clone https://github.com/pimmelkopter/Netgear-Feedback.git
+- cd Netgear-Feedback
+- customize your settings with: nano config/config.json
+- create secrets.json: mv config/secrets_initial.json config/secrets.json
+- enter your credentials: nano config/secrets.json
 - chmod +x setup/setup.sh
 - ./setup/setup.sh
 - if you need to change any settings in config.json just run ./update.sh afterwards
@@ -53,7 +55,7 @@ Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
     Returns a dict: {port_id: [ledIndex,...], ...}
     """
 
-    # E.g. 'odd_even-linear' => odd asc, even asc
+    E.g. 'odd_even-linear' => odd asc, even asc
         #    'odd_even-even_reversed' => odd asc, even desc, etc.
 
     VLAN Color map:

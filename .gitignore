@@ -20,6 +20,7 @@ venv/
 *copy-bin*
 *esp32*
 ESP32/
+"Netgear Feedback.code-workspace"
 
 # Sonstiges
 ToDo
