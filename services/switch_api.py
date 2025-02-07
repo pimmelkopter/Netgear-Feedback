@@ -15,8 +15,26 @@ class SwitchAPI:
     def __init__(self):
         self.config = Config()
         self.base_url = f"https://{self.config.switch_ip}{self.config.base_url_suffix}"
+        self.token = None
         self.session = self._create_session()
-        
+
+    def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
+        for i in range(self.config.scan_range_start, self.config.scan_range_end + 1):
+            candidate = f"{self.config.scan_base}.{i}"
+            progress = int((i - self.config.scan_range_start) / (self.config.scan_range_end - self.config.scan_range_start) * self.config.led_count)
+            
+            self._update_progress_leds(progress)
+            
+            logger.info(f"Scanning: {candidate}")
+            try:
+                response = requests.get(f"https://{candidate}", timeout=0.4, verify=False)
+                if response.status_code == 200:
+                    logger.info(f"Switch found at {candidate}")
+                    return candidate
+            except:
+                continue
+        return ""
+
     def _create_session(self) -> requests.Session:
         session = requests.Session()
         retry_strategy = Retry(
@@ -29,8 +47,7 @@ class SwitchAPI:
         session.mount("https://", adapter)
         session.verify = False
         session.headers.update({
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.config.token}"
+            "Content-Type": "application/json"
         })
         return session
 

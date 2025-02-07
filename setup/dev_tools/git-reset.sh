@@ -35,7 +35,6 @@ sudo chmod +x update.sh
 sudo chmod +x setup/setup.sh
 sudo chmod +x git-reset.sh
 
-./setup/setup.sh
 ./update.sh
 echo "Update.sh durchgeführt"
 

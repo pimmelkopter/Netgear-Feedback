@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="${PROJECT_DIR}/settings/config.json"
+PROJECT_DIR="$(cd "$(dirname "$0")" && cd ../.. && pwd)"
+CONFIG_FILE="${PROJECT_DIR}/config/config.json"
 DHCP=$(jq -r '.dhcp' "$CONFIG_FILE")
 FIXED_IP=$(jq -r '.fixed_ip' "$CONFIG_FILE")
 FIXED_GW=$(jq -r '.fixed_gw' "$CONFIG_FILE")

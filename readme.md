@@ -17,7 +17,7 @@ Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
 - enter your credentials: nano config/secrets.json
 - chmod +x setup/setup.sh
 - ./setup/setup.sh
-- if you need to change any settings in config.json just run ./update.sh afterwards
+- if you need to change any settings in config.json just run ./setup/dev_tools/update.sh afterwards
 
 **ToDos**
 - tidy up

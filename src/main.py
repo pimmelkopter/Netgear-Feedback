@@ -48,7 +48,7 @@ class SwitchMonitor:
         for i in range(self.config.led_count):
             self.strip.setPixelColor(i, Color(255,255,255) if i < progress else 0)
         self.strip.show()
-
+    
     def _show_port_detection_status(self, success: bool):
         color = Color(0,0,255) if success else Color(255,0,255)
         for i in range(self.config.led_count):
@@ -215,6 +215,21 @@ class SwitchMonitor:
         try:
             self.strip.setPixelColor(0, Color(255,255,255))
             self.strip.show()
+
+            if self.config.get('auto_scan', False):
+                logger.info("Starting network scan...")
+                switch_ip = self.api.scan_network(
+                    self.config.scan_base,
+                    self.config.scan_range_start,
+                    self.config.scan_range_end
+                )
+                if switch_ip:
+                    self.config.switch_ip = switch_ip
+                    logger.info(f"Found switch at {switch_ip}")
+                else:
+                    logger.error("No switch found during scan")
+                    self.cleanup_and_exit()
+                    return
             
             self.api = SwitchAPI()
             if not self.api.login():

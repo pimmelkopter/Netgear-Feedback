@@ -74,14 +74,13 @@ create_service "hotspot" \
 create_service "switch_monitor" \
     "Switch Monitor Service" \
     "" \
-    "Environment=\"OPENSSL_CONF=${PROJECT_DIR}/settings/openssl.cnf\"" \
+    "Environment=\"OPENSSL_CONF=${PROJECT_DIR}/config/openssl.cnf\"" \
     "-m src.main"
 
 # Web Interface Service
 create_service "web_interface" \
     "Web Interface Service" \
     "After=network.target hotspot.service\nRequires=hotspot.service" \
-    "Environment=\"OPENSSL_CONF=${PROJECT_DIR}/settings/openssl.cnf\"" \
     "-m hotspot.flask-server"
 
 # Enable services
@@ -90,6 +89,9 @@ for service in switch_monitor hotspot web_interface; do
 done
 
 sudo systemctl daemon-reload
+sudo chmod +x setup/dev_tools/update.sh
+sudo chmod +x setup/dev_tools/git-reset.sh
+sudo chmod +x setup/dev_tools/fixed-hotspot.sh
 
 echo "Installation complete!"
 echo "Please ensure config/config.json and config/secrets.json are properly configured."

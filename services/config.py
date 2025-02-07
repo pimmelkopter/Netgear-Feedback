@@ -82,3 +82,19 @@ class Config:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._config.get(key, default)
+    @property
+    
+    def ip_scan(self) -> bool:
+        return bool(self._config.get('ip_scan', True))
+
+    @property
+    def scan_base(self) -> str:
+        return self._config.get('scan_base', '10.18.254')
+
+    @property
+    def scan_range_start(self) -> int:
+        return int(self._config.get('scan_range_start', 145))
+
+    @property
+    def scan_range_end(self) -> int:
+        return int(self._config.get('scan_range_end', 160))
