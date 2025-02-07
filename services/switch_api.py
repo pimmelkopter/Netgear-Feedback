@@ -2,12 +2,15 @@ import requests
 import logging
 import time
 import ssl
+import urllib3
 from typing import Optional, Dict, Any
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 from urllib3.util.retry import Retry
 from .config import Config
 logger = logging.getLogger(__name__)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 class SwitchAPIError(Exception):
     pass
 
@@ -43,8 +46,6 @@ class SwitchAPI:
             backoff_factor=0.5,
             status_forcelist=[500, 502, 503, 504]
         )
-        ctx = create_urllib3_context()
-        ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT  
         adapter = HTTPAdapter(max_retries=retry_strategy, ssl_context=ctx)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
