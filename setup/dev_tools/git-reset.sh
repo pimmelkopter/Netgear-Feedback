@@ -31,11 +31,9 @@ mv git-reset.bak git-reset.sh
 cp src/claude-main.py src/main.py
 cp src/claude-utils.py src/utils.py
 
-sudo chmod +x setup/dev_tools/update.sh
-sudo chmod +x setup/dev_tools/setup.sh
-sudo chmod +x setup/dev_tools/git-reset.sh
+git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh
 
-./update.sh
+./setup/dev_tools/update.sh
 echo "Update.sh durchgeführt"
 
 echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"

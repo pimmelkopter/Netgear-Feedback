@@ -12,26 +12,27 @@ class SwitchAPIError(Exception):
     pass
 
 class SwitchAPI:
-    def __init__(self):
+    def __init__(self, progress_callback=None):
         self.config = Config()
         self.base_url = None
         self.token = None
         self.session = self._create_session()
+        self.progress_callback = progress_callback
 
     def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
-        for i in range(self.config.scan_range_start, self.config.scan_range_end + 1):
-            candidate = f"{self.config.scan_base}.{i}"
-            progress = int((i - self.config.scan_range_start) / (self.config.scan_range_end - self.config.scan_range_start) * self.config.led_count)
-            
-            self._update_progress_leds(progress)
-            
-            logger.info(f"Scanning: {candidate}")
+        total = end - start + 1
+        for i in range(start, end + 1):
+            if self.progress_callback:
+                progress = int((i - start) / total * self.config.led_count)
+                self.progress_callback(progress)
+                
+            ip = f"{subnet_prefix}.{i}"
             try:
-                response = requests.get(f"https://{candidate}", timeout=0.4, verify=False)
+                response = requests.get(f"https://{ip}", timeout=0.4, verify=False)
                 if response.status_code == 200:
-                    logger.info(f"Switch found at {candidate}")
-                    return candidate
-            except:
+                    logger.info(f"Switch found at {ip}")
+                    return ip
+            except requests.exceptions.RequestException:
                 continue
         return ""
 

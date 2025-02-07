@@ -44,6 +44,12 @@ class SwitchMonitor:
         )
         self.strip.begin()
 
+    def _show_scan_progress(self, progress: float):
+        """Callback für LED-Updates während des Scans"""
+        for i in range(self.config.led_count):
+            self.strip.setPixelColor(i, Color(255,255,255) if i < progress else 0)
+        self.strip.show()
+
     def _update_progress_leds(self, progress: int):
         for i in range(self.config.led_count):
             self.strip.setPixelColor(i, Color(255,255,255) if i < progress else 0)
@@ -216,7 +222,7 @@ class SwitchMonitor:
             self.strip.setPixelColor(0, Color(255,255,255))
             self.strip.show()
 
-            self.api = SwitchAPI()
+            self.api = SwitchAPI(self._show_scan_progress)
 
             if self.config.ip_scan:
                 logger.info("Starting network scan...")
