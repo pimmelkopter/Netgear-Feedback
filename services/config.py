@@ -38,7 +38,11 @@ class Config:
 
     @property
     def switch_ip(self) -> str:
-        return self._config['switch_ip']
+        return self._config.get('switch_ip', '')
+    
+    @switch_ip.setter
+    def switch_ip(self, value: str):
+        self._config['switch_ip'] = value
 
     @property
     def base_url_suffix(self) -> str:
@@ -82,8 +86,8 @@ class Config:
 
     def get(self, key: str, default: Any = None) -> Any:
         return self._config.get(key, default)
-    @property
     
+    @property
     def ip_scan(self) -> bool:
         return bool(self._config.get('ip_scan', True))
 
