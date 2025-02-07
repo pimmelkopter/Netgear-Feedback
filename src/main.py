@@ -9,6 +9,7 @@ from services.led import LEDService
 from services.utils import (
     parse_port_led_mapping,
     parse_vlan_color_map,
+    parse_vlan_color_for_port,
     update_vlan_colors_from_map_and_random,
     calculate_blink_states
 )

@@ -39,6 +39,10 @@ class Config:
     @property
     def switch_ip(self) -> str:
         return self._config.get('switch_ip', '')
+    
+    @switch_ip.setter  # Nur switch_ip hat einen Setter
+    def switch_ip(self, value: str):
+        self._config['switch_ip'] = value
 
     @property
     def base_url_suffix(self) -> str:
@@ -67,6 +71,10 @@ class Config:
     @property
     def scan_vlans(self) -> bool:
         return bool(self._config.get('scan_vlans', False))
+    
+    @scan_vlans.setter
+    def scan_vlans(self, value: bool):
+        self._config['scan_vlans'] = value
 
     @property
     def port_stats(self) -> bool:
