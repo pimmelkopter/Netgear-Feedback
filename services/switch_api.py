@@ -5,6 +5,7 @@ from typing import Optional, Dict, Any
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from .config import Config
+import re
 
 logger = logging.getLogger(__name__)
 
