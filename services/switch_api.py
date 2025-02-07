@@ -8,7 +8,6 @@ from urllib3.util.ssl_ import create_urllib3_context
 from urllib3.util.retry import Retry
 from .config import Config
 logger = logging.getLogger(__name__)
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) #TODO muss das hier auch sein?
 class SwitchAPIError(Exception):
     pass
 
