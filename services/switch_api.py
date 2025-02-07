@@ -81,6 +81,53 @@ class SwitchAPI:
             logger.error(f"Login failed: {e}")
             return False
 
+    def detect_ports(self) -> bool:
+        """Detect number of switch ports and map to usable ports"""
+        try:
+            response = self.session.get(f"{self.base_url}/device_info", timeout=3)
+            data = self._handle_response(response)
+            
+            total_ports = int(data.get("deviceInfo", {}).get("numOfPorts", 24))
+            logger.info(f"Switch reports {total_ports} total ports")
+            
+            # Map total ports to usable ports
+            if total_ports <= 12:
+                return 8
+            elif total_ports <= 24:
+                return 16
+            elif total_ports <= 40:
+                return 24
+            return 40
+            
+        except Exception as e:
+            logger.error(f"Port detection failed: {e}")
+            # Fallback to config value
+            return self.config.port_count
+
+    def scan_vlans(self) -> Dict[str, str]:
+        """Scan switch for VLAN configurations"""
+        try:
+            response = self.session.get(
+                f"{self.base_url}/device_config?file=running-config",
+                timeout=5
+            )
+            data = self._handle_response(response)
+            
+            lines = data.get("Device-Config",{}).get("Running-Config",[])
+            vlan_pattern = re.compile(r'^\s*vlan\s+name\s+(\d+)\s+"([^"]+)"')
+            
+            vlan_info = {}
+            for line in lines:
+                match = vlan_pattern.match(line.strip())
+                if match:
+                    vlan_id, vlan_name = match.groups()
+                    vlan_info[f"vlan{vlan_id}_{vlan_name}_color"] = None
+                    
+            return vlan_info
+        except Exception as e:
+            logger.error(f"VLAN scan failed: {e}")
+            return {}
+    
     def set_port_vlan(self, port_id: int, vlan_id: int, save_config: bool = True) -> bool:
         if not 1 <= port_id <= self.config.port_count:
             raise ValueError(f"Invalid port ID: {port_id}")
@@ -137,9 +184,9 @@ class SwitchAPI:
             return False
 
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
-        """Get info for specific port or all ports if port_id=0"""
+        """Get info for specific port or all ports"""
         try:
-            url = f"{self.base_url}/sw_portstats?portid={port_id}"
+            url = f"{self.base_url}/sw_portstats?portid={'ALL' if port_id == 0 else port_id}"
             response = self.session.get(url, timeout=5)
             data = self._handle_response(response)
             ports = data.get("switchStatsPort", [])

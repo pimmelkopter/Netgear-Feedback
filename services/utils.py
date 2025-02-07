@@ -1,14 +1,18 @@
-from pathlib import Path
 from typing import Dict, List, Tuple, Optional
-from .config import Config
 import logging
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
+# Type Aliases
 RGB = Tuple[int, int, int]
 PortMapping = Dict[int, List[int]]
 
 def parse_port_led_mapping(config: Config) -> PortMapping:
+    """
+    Parse port to LED mapping based on configuration.
+    Returns a dictionary mapping port numbers to LED indices.
+    """
     if config.get('port_mapping_mode') == 'manual':
         return parse_manual_mapping(config.get('port_led_mapping', ''))
 
@@ -26,6 +30,7 @@ def parse_port_led_mapping(config: Config) -> PortMapping:
     return generate_mapping(mapping_config)
 
 def parse_manual_mapping(mapping_str: str) -> PortMapping:
+    """Parse manual mapping string in format 'port:led1,led2;port:led1,led2'"""
     result: PortMapping = {}
     if not mapping_str:
         return result
@@ -44,6 +49,7 @@ def parse_manual_mapping(mapping_str: str) -> PortMapping:
     return result
 
 def generate_mapping(config: dict) -> PortMapping:
+    """Generate port to LED mapping based on configuration"""
     if config['mode'] == 'linear':
         ports1 = list(range(1, config['port_count'] + 1))
         ports2 = []
@@ -82,11 +88,26 @@ def generate_mapping(config: dict) -> PortMapping:
     return result
 
 def _split_ports(port_count: int) -> Tuple[List[int], List[int]]:
+    """Split ports into odd and even numbered lists"""
     odd = [p for p in range(1, port_count + 1) if p % 2 == 1]
     even = [p for p in range(1, port_count + 1) if p % 2 == 0]
     return odd, even
 
+def parse_rgb_string(rgb_str: str) -> RGB:
+    """Parse RGB string in format 'r,g,b' to tuple"""
+    try:
+        r, g, b = map(int, rgb_str.strip().split(','))
+        return (
+            max(0, min(r, 255)),
+            max(0, min(g, 255)),
+            max(0, min(b, 255))
+        )
+    except Exception as e:
+        logger.warning(f"Error parsing RGB string {rgb_str}: {e}")
+        return (0, 0, 255)  # Default blue
+
 def parse_vlan_color_map(mapping_str: str) -> Dict[int, RGB]:
+    """Parse VLAN to color mapping string in format 'vlan:r,g,b;vlan:r,g,b'"""
     result: Dict[int, RGB] = {}
     if not mapping_str:
         return result
@@ -102,24 +123,13 @@ def parse_vlan_color_map(mapping_str: str) -> Dict[int, RGB]:
             logger.warning(f"Error parsing VLAN color mapping {pair}: {e}")
     return result
 
-def parse_rgb_string(rgb_str: str) -> RGB:
-    try:
-        r, g, b = map(int, rgb_str.split(','))
-        return (
-            max(0, min(r, 255)),
-            max(0, min(g, 255)),
-            max(0, min(b, 255))
-        )
-    except Exception as e:
-        logger.warning(f"Error parsing RGB string {rgb_str}: {e}")
-        return (0, 0, 255)
-
 def parse_vlan_color_for_port(
     vlans: List[int],
     config: Config,
     default_color: RGB,
     vlan_map: Optional[Dict[int, RGB]] = None
 ) -> RGB:
+    """Get color for VLAN(s), checking config and map with fallback to default"""
     if not vlans:
         return default_color
     
@@ -132,3 +142,37 @@ def parse_vlan_color_for_port(
         return vlan_map[vlan_id]
     
     return default_color
+
+def update_vlan_colors_from_map_and_random(config: Config, vlan_info: List[str]) -> None:
+    """Update config with VLAN colors from map or generate random colors"""
+    import random
+    
+    # Parse existing color map
+    color_map = parse_vlan_color_map(config.get('vlan_color_map', ''))
+    updates = {}
+    
+    for vlan_key in vlan_info:
+        if vlan_key in config._config:
+            continue
+            
+        # Extract VLAN ID from key format: vlanX_NAME_color
+        try:
+            vlan_id = int(vlan_key[4:vlan_key.index('_')])
+        except (ValueError, IndexError):
+            continue
+            
+        # Use existing color from map or generate random
+        if vlan_id in color_map:
+            r, g, b = color_map[vlan_id]
+        else:
+            r = random.randint(0, 255)
+            g = random.randint(0, 255)
+            b = random.randint(0, 255)
+            
+        updates[vlan_key] = f"{r},{g},{b}"
+    
+    # Update config if we have changes
+    if updates:
+        for key, value in updates.items():
+            config._config[key] = value
+        config._config['scan_vlans'] = False  # Disable future scans

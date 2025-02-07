@@ -39,10 +39,6 @@ class Config:
     @property
     def switch_ip(self) -> str:
         return self._config.get('switch_ip', '')
-    
-    @switch_ip.setter
-    def switch_ip(self, value: str):
-        self._config['switch_ip'] = value
 
     @property
     def base_url_suffix(self) -> str:
