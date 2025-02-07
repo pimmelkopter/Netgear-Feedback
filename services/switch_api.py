@@ -19,7 +19,10 @@ class CustomHTTPAdapter(HTTPAdapter):
         context = create_urllib3_context(
             ciphers='DEFAULT:@SECLEVEL=1'
         )
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         kwargs['ssl_context'] = context
+        kwargs['assert_hostname'] = False
         return super().init_poolmanager(*args, **kwargs)
 
 class SwitchAPI:
