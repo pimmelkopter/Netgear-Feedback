@@ -176,3 +176,10 @@ def update_vlan_colors_from_map_and_random(config: Config, vlan_info: List[str])
         for key, value in updates.items():
             config._config[key] = value
         config._config['scan_vlans'] = False  # Disable future scans
+
+def calculate_blink_states():
+    blink_cycle = (time.time() * 10) % 20
+    return {
+        'blink_on': (int(blink_cycle) % 2) == 0,
+        'show_vlan': (int(blink_cycle) % 16) < 10
+    }

@@ -175,7 +175,7 @@ class SwitchAPI:
     def _save_via_api(self) -> bool:
         try:
             url = f"{self.base_url}/config_copy?directive=rtos"
-            response = self.session.post(url, json={}, timeout=15)
+            response = self.session.post(url, json={"directive":"rtos"}, timeout=15)
             self._handle_response(response)
             logger.info("Config saved to startup-config")
             return True
@@ -193,3 +193,4 @@ class SwitchAPI:
             return ports[0] if port_id > 0 and ports else ports
         except Exception as e:
             logger.error(f"Error getting port info: {e}")
+            raise SwitchAPIError(f"Failed to get port info: {e}")

@@ -9,7 +9,8 @@ from services.led import LEDService
 from services.utils import (
     parse_port_led_mapping,
     parse_vlan_color_map,
-    update_vlan_colors_from_map_and_random
+    update_vlan_colors_from_map_and_random,
+    calculate_blink_states
 )
 
 # Logging setup
@@ -165,8 +166,11 @@ class SwitchMonitor:
                 self.update_port_info()
                 last_update = current_time
             
+            # Calculate blink states
+            blink_states = calculate_blink_states()
+            
             # Update LEDs
-            self.led_service.update_port_leds(port_led_map, self.port_info_cache)
+            self.led_service.update_port_leds(port_led_map, self.port_info_cache, blink_states['blink_on'], blink_states["show_vlan"])
             
             # Small sleep to prevent CPU hogging
             time.sleep(0.1)

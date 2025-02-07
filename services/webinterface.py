@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 config = Config()
 app.config['SECRET_KEY'] = config.get('jwt_secret', 'default_secret_key')
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
 
 def login_required(f):
     @wraps(f)
