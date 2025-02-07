@@ -216,22 +216,24 @@ class SwitchMonitor:
             self.strip.setPixelColor(0, Color(255,255,255))
             self.strip.show()
 
-            if self.config.get('auto_scan', False):
+            self.api = SwitchAPI()
+
+            if self.config.ip_scan:
                 logger.info("Starting network scan...")
-                switch_ip = self.api.scan_network(
+                found_ip = self.api.scan_network(
                     self.config.scan_base,
                     self.config.scan_range_start,
                     self.config.scan_range_end
                 )
-                if switch_ip:
-                    self.config.switch_ip = switch_ip
-                    logger.info(f"Found switch at {switch_ip}")
+                if found_ip:
+                    self.config.switch_ip = found_ip
+                    self.api.base_url = f"https://{found_ip}{self.config.base_url_suffix}"
+                    logger.info(f"Found switch at {found_ip}")
                 else:
                     logger.error("No switch found during scan")
                     self.cleanup_and_exit()
                     return
             
-            self.api = SwitchAPI()
             if not self.api.login():
                 self.cleanup_and_exit()
                 return

@@ -31,9 +31,9 @@ mv git-reset.bak git-reset.sh
 cp src/claude-main.py src/main.py
 cp src/claude-utils.py src/utils.py
 
-sudo chmod +x update.sh
-sudo chmod +x setup/setup.sh
-sudo chmod +x git-reset.sh
+sudo chmod +x setup/dev_tools/update.sh
+sudo chmod +x setup/dev_tools/setup.sh
+sudo chmod +x setup/dev_tools/git-reset.sh
 
 ./update.sh
 echo "Update.sh durchgeführt"

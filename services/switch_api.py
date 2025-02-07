@@ -14,7 +14,7 @@ class SwitchAPIError(Exception):
 class SwitchAPI:
     def __init__(self):
         self.config = Config()
-        self.base_url = f"https://{self.config.switch_ip}{self.config.base_url_suffix}"
+        self.base_url = None
         self.token = None
         self.session = self._create_session()
 
