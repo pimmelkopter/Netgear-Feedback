@@ -11,3 +11,5 @@ ESP32/
 *.code-workspace
 backup.git/
 backup/
+.vscode/
+Metgear Feedback.code-workspace
