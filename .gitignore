@@ -13,3 +13,4 @@ backup.git/
 backup/
 .vscode/
 Metgear Feedback.code-workspace
+tests/
