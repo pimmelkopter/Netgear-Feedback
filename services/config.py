@@ -46,7 +46,7 @@ class Config:
 
     @property
     def base_url_suffix(self) -> str:
-        return self._config.get('base_url_suffix', '/api/v1')
+        return self._config.get('base_url_suffix', ':8443/api/v1')
 
     @property
     def led_count(self) -> int:
