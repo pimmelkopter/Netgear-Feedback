@@ -16,9 +16,9 @@ class SwitchAPIError(Exception):
 
 class CustomHTTPAdapter(HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
-        context = create_urllib3_context()
-        # Enable legacy renegotiation
-        context.options &= ~ssl.OP_NO_LEGACY_SERVER_CONNECT
+        context = create_urllib3_context(
+            ciphers='DEFAULT:@SECLEVEL=1'
+        )
         kwargs['ssl_context'] = context
         return super().init_poolmanager(*args, **kwargs)
 
