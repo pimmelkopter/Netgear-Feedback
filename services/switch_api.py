@@ -46,10 +46,17 @@ class SwitchAPI:
             backoff_factor=0.5,
             status_forcelist=[500, 502, 503, 504]
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy, ssl_context=ctx)
+        adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         session.verify = False
+
+        urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
+        try:
+            requests.packages.urllib3.contrib.pyopenssl.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
+        except AttributeError:
+            pass
+
         session.headers.update({
             "Content-Type": "application/json"
         })
