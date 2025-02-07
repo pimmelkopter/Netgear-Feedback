@@ -136,10 +136,6 @@ class SwitchAPI:
             logger.error(f"API save failed: {e}")
             return False
 
-    def _save_via_ssh(self) -> bool:
-        logger.warning("SSH save not implemented")
-        return False
-
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
         """Get info for specific port or all ports if port_id=0"""
         try:
