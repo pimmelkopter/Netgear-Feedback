@@ -1,19 +1,25 @@
-settings/secrets.json
+# Ignoriere secrets
+config/secrets.json
+
+
+# Backup und Archiv ignorieren
+backup/
+backup.git/
 archiv/
-ToDo
-ESP32
+archiv/tests/
+
+# Editor-spezifische Dateien
+.vscode/
+*.code-workspace  # Generisch für alle Workspaces
+
+# Umgebung und Caches
 *venv
-*vscode
+venv/
+*.vscode*
 *gpt*
 *copy-bin*
 *esp32*
 ESP32/
-*.code-workspace
-backup.git/
-backup/
-.vscode/
-Metgear Feedback.code-workspace
-tests/
-.vscode
-tests
-archiv
+
+# Sonstiges
+ToDo

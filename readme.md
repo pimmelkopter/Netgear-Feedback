@@ -1,32 +1,28 @@
 Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
 
-Requirements:
-Raspi with pios/ pios lite, WS2812B
+**Requirements:**
+- Raspi with pios/ pios lite, WS2812B
 
 - **WS2812b DATA** -> **GPIO 18** (you can change this under config.json)
 - **+5V** -> **5V** 
 - **GND** -> **GND** 
 
-git clone repository
-cd into cloned repository
-nano settings/config.json
-customize your settings
+**How to use**
+- git clone repository
+- cd into cloned repository
+- customize your settings with: nano settings/config.json
+- create secrets.json: mv settings/secrets_initial.json settings/secrets.json
+- enter your credentials nano settings/secrets.json
+- chmod +x setup/setup.sh
+- ./setup/setup.sh
+- if you need to change any settings in config.json just run ./update.sh afterwards
 
-chmod +x setup/setup.sh
-./setup/setup.sh
-if you need a hotspot for ssh access ./setup/fixed-hotspot.sh
-nano settings/secrets.json
-enter your credentials
-./update.sh
-
-if you need to change any settings in config.json just run ./update.sh afterwards
-
-ToDos
--tidy up
--add poe-status functionality
--add link-status functionality
--add functionality to retrieve vlans and colors out of cfg file
--add web-gui
+**ToDos**
+- tidy up
+- add poe-status functionality
+- add link-status functionality
+- add functionality to retrieve vlans and colors out of cfg file
+- add web-gui
     - random wifi ap
     - show ports with vlan, poe and link status
     - if multiple switches are found switch-selector
@@ -34,18 +30,18 @@ ToDos
     - password-protected save and reboot
     - password-protected cfg file uploader
     - logs
--test on pi zero
--port to esp32
+- test on pi zero
+- port to esp32
 
 
-utils.py port mapping generator:
+    utils.py port mapping generator:
     Generates a dict {port_id: [ledIndices]} based on the chosen mode:
-      - 'linear': just 1..port_count in ascending order
-      - 'odd_even-linear': odd asc, then even asc
-      - 'odd_even-even_reversed': odd asc, then even desc
-      - 'odd_even-odd_reversed': odd desc, then even asc
-      - 'odd_even-reversed': odd desc, then even desc
-      - (fallback => 'linear')
+      'linear': just 1..port_count in ascending order
+      'odd_even-linear': odd asc, then even asc
+      'odd_even-even_reversed': odd asc, then even desc
+      'odd_even-odd_reversed': odd desc, then even asc
+      'odd_even-reversed': odd desc, then even desc
+      (fallback => 'linear')
 
     Gaps:
       gap_start:     extra LED offset before the first port
@@ -60,8 +56,8 @@ utils.py port mapping generator:
     # E.g. 'odd_even-linear' => odd asc, even asc
         #    'odd_even-even_reversed' => odd asc, even desc, etc.
 
-VLAN Color map:
-    """
-    Expects e.g. '100:255,0,0;200:0,255,0'
-    Returns a dict {100: (255,0,0), 200: (0,255,0)}
-    """
+    VLAN Color map:
+      """
+      Expects e.g. '100:255,0,0;200:0,255,0'
+      Returns a dict {100: (255,0,0), 200: (0,255,0)}
+      """
