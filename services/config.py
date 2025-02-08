@@ -63,6 +63,10 @@ class Config:
     @property
     def port_count(self) -> int:
         return int(self._config.get('fixed_port_count', 24))
+    
+    @port_count.setter
+    def port_count(self, value: int):
+        self._config['fixed_port_count'] = value
 
     @property
     def update_interval(self) -> int:

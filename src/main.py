@@ -2,8 +2,11 @@ import time
 import sys
 import urllib3
 import logging
+import threading
 from typing import Dict, Any
 from services.config import Config
+from services.hotspot import HotspotService
+from services.webinterface import WebService
 from services.switch_api import SwitchAPI, SwitchAPIError
 from services.led import LEDService
 from services.utils import (
@@ -32,6 +35,7 @@ class SwitchMonitor:
         self.api = None
         self.port_info_cache: Dict[int, Dict[str, Any]] = {}
         self.running = True
+        self._start_time = time
 
     def scan_network(self) -> bool:
         """Scan network for switch with visual progress"""
@@ -99,8 +103,7 @@ class SwitchMonitor:
             
             if vlan_info:
                 # Update config with new VLAN colors
-                update_vlan_colors_from_map_and_random(self.config, list(vlan_info.keys()))
-                self.config.scan_vlans = False  # Disable future scans
+                update_vlan_colors_from_map_and_random(self.config, vlan_info)
                 logger.info("Updated VLAN configurations")
                 
         except Exception as e:
@@ -176,6 +179,21 @@ class SwitchMonitor:
             # Small sleep to prevent CPU hogging
             time.sleep(0.1)
 
+    def is_connected(self) -> bool:
+        """Check if switch is connected"""
+        if not self.api:
+            return False
+        try:
+            # Schneller Test-Call zum Switch
+            self.api.get_port_info(1)
+            return True
+        except Exception:
+            return False
+
+    def get_uptime(self) -> float:
+        """Get uptime in seconds"""
+        return time.time() - self._start_time  # _start_time in __init__ setzen
+
     def cleanup_and_exit(self):
         """Clean shutdown sequence"""
         logger.error("Critical error => shutting down")
@@ -208,6 +226,9 @@ class SwitchMonitor:
             # Scan VLANs if enabled
             self.scan_vlans()
 
+            # Clear ALL LEDs before starting normal operation
+            self.led_service.all_black()
+
             # Initialize port info cache
             self.port_info_cache = {
                 pid: {
@@ -229,9 +250,58 @@ class SwitchMonitor:
             logger.error(f"Fatal error in main loop: {e}")
             self.cleanup_and_exit()
 
+class ServiceManager:
+    def __init__(self):
+        self.config = Config()
+        self.hotspot_service = HotspotService()
+        self.switch_monitor = SwitchMonitor()
+        self.web_service = WebService(self.switch_monitor, self.hotspot_service)
+        
+        # Thread-Management
+        self.threads = []
+
+    def start_services(self):
+        """Start all services"""
+        # Start hotspot
+        hotspot_thread = threading.Thread(
+            target=self.hotspot_service.run,
+            daemon=True
+        )
+        hotspot_thread.start()
+        self.threads.append(hotspot_thread)
+        logger.info("Started hotspot service")
+
+        # Start web interface
+        web_thread = threading.Thread(
+            target=lambda: self.web_service.run(host='0.0.0.0', port=5000),
+            daemon=True
+        )
+        web_thread.start()
+        self.threads.append(web_thread)
+        logger.info("Started web interface")
+
+        # Start switch monitor (main thread)
+        self.switch_monitor.run()
+
+    def cleanup(self):
+        """Cleanup all services"""
+        logger.info("Cleaning up services...")
+        self.hotspot_service.cleanup()
+        self.switch_monitor.cleanup_and_exit()
+        # Web service cleanup nicht nötig da daemon=True
+
 def main():
-    monitor = SwitchMonitor()
-    monitor.run()
+    """Main entry point"""
+    try:
+        manager = ServiceManager()
+        manager.start_services()
+    except KeyboardInterrupt:
+        logger.info("Received shutdown signal")
+        manager.cleanup()
+    except Exception as e:
+        logger.critical(f"Fatal error in main: {e}")
+        manager.cleanup()
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

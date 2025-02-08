@@ -129,6 +129,20 @@ class HotspotService:
 
         self.cleanup()
 
+    def is_active(self) -> bool:
+        """Check if hotspot is running"""
+        try:
+            result = subprocess.run(
+                ["nmcli", "-t", "-f", "GENERAL.STATE", "connection", "show", self.connection_name],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5
+            )
+            return "activated" in result.stdout.lower()
+        except Exception:
+            return False
+
 if __name__ == "__main__":
     try:
         service = HotspotService()

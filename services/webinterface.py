@@ -3,6 +3,9 @@ from functools import wraps
 import jwt
 from datetime import datetime, timedelta
 import logging
+import subprocess
+from ..src.main import SwitchMonitor
+from hotspot import HotspotService
 from .config import Config
 from .switch_api import SwitchAPI
 
@@ -16,6 +19,17 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax'
 )
+
+def check_dependencies():
+    try:
+        subprocess.run(["nmcli", "--version"], check=True, capture_output=True)
+        return True
+    except ImportError:
+        logger.error("Flask not installed. Please install with: pip install flask")
+        return False
+    except FileNotFoundError:
+        logger.error("nmcli not found. Please install NetworkManager")
+        return False
 
 def login_required(f):
     @wraps(f)
@@ -32,6 +46,14 @@ def login_required(f):
 
 @app.route('/')
 @login_required
+
+def status():
+    return jsonify({
+        'hotspot_active': is_hotspot_active(),
+        'switch_connected': is_switch_connected(),
+        'uptime': get_uptime()
+    })
+
 def index():
     port_vlans = {i: 1 for i in range(1, config.port_count + 1)}
     vlan_colors = {
@@ -89,6 +111,26 @@ def update_port(port_id):
 
 def run_webinterface(host='0.0.0.0', port=5000, debug=False):
     app.run(host=host, port=port, debug=debug)
+
+class WebService:
+    def __init__(self, switch_monitor: SwitchMonitor, hotspot_service: HotspotService):
+        self.switch_monitor = switch_monitor
+        self.hotspot_service = hotspot_service
+        self.app = Flask(__name__)
+        self.setup_routes()
+
+    def setup_routes(self):
+        @self.app.route('/api/status')
+        @login_required
+        def status():
+            return jsonify({
+                'hotspot_active': self.hotspot_service.is_active(),
+                'switch_connected': self.switch_monitor.is_connected(),
+                'uptime': self.switch_monitor.get_uptime()
+            })
+
+    def run(self, host='0.0.0.0', port=5000):
+        self.app.run(host=host, port=port)
 
 if __name__ == '__main__':
     run_webinterface()

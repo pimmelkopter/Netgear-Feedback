@@ -1,6 +1,7 @@
 from typing import Dict, List, Tuple, Optional
 import logging
 import time
+import random
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -135,10 +136,14 @@ def parse_vlan_color_for_port(
         return default_color
     
     vlan_id = vlans[0]
-    color_key = f"vlan{vlan_id}_color"
     
-    if config.get(color_key):
-        return parse_rgb_string(config.get(color_key))
+    if config.scan_vlans:
+        if vlan_map and vlan_id in vlan_map:
+            return vlan_map[vlan_id]
+        return default_color
+    for key, value in config.get_config().items():
+        if key.startswith(f"vlan{vlan_id}_") and key.endswith("_color"):
+            return parse_rgb_string(value)
     if vlan_map and vlan_id in vlan_map:
         return vlan_map[vlan_id]
     
@@ -146,37 +151,30 @@ def parse_vlan_color_for_port(
 
 def update_vlan_colors_from_map_and_random(config: Config, vlan_info: List[str]) -> None:
     """Update config with VLAN colors from map or generate random colors"""
-    import random
     
     # Parse existing color map
     color_map = parse_vlan_color_map(config.get('vlan_color_map', ''))
     updates = {}
     
-    for vlan_key in vlan_info:
-        if vlan_key in config._config:
-            continue
-            
-        # Extract VLAN ID from key format: vlanX_NAME_color
-        try:
-            vlan_id = int(vlan_key[4:vlan_key.index('_')])
-        except (ValueError, IndexError):
-            continue
-            
+    for vlan_id, vlan_name in vlan_info.items():
+        color_key = f"vlan{vlan_id}_{vlan_name}_color"
+                        
         # Use existing color from map or generate random
-        if vlan_id in color_map:
-            r, g, b = color_map[vlan_id]
+        if int(vlan_id) in color_map:
+            r, g, b = color_map[int(vlan_id)]
         else:
             r = random.randint(0, 255)
             g = random.randint(0, 255)
             b = random.randint(0, 255)
             
-        updates[vlan_key] = f"{r},{g},{b}"
+        updates[color_key] = f"{r},{g},{b}"
     
     # Update config if we have changes
     if updates:
-        for key, value in updates.items():
-            config._config[key] = value
-        config._config['scan_vlans'] = False  # Disable future scans
+        config_dict = config.get_config()
+        config_dict.update(updates)
+        config_dict['scan_vlans'] = False
+        config.save_config(config_dict)
 
 def calculate_blink_states():
     blink_cycle = (time.time() * 10) % 20

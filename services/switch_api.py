@@ -23,15 +23,18 @@ class SwitchAPI:
     def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
         total = end - start + 1
         for i in range(start, end + 1):
-            if self.progress_callback:
-                progress = int((i - start) / total * self.config.led_count)
-                self.progress_callback(progress)
+            new_progress = int((i - start) / total * self.config.led_count)
+            if self.progress_callback and new_progress != last_progress:
+                self.progress_callback(new_progress)
+                last_progress = new_progress
 
             ip = f"{subnet_prefix}.{i}"
             try:
                 response = requests.get(f"https://{ip}", timeout=0.4, verify=False)
                 if response.status_code == 200:
                     logger.info(f"Switch found at {ip}")
+                    if self.progress_callback:
+                        self.progress_callback(self.config.led_count)
                     return ip
             except requests.exceptions.RequestException:
                 continue
@@ -122,7 +125,7 @@ class SwitchAPI:
                 match = vlan_pattern.match(line.strip())
                 if match:
                     vlan_id, vlan_name = match.groups()
-                    vlan_info[f"vlan{vlan_id}_{vlan_name}_color"] = None
+                    vlan_info[vlan_id] = vlan_name
                     
             return vlan_info
         except Exception as e:

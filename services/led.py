@@ -24,6 +24,11 @@ class LEDService:
         )
         strip.begin()
         return strip
+    
+    def all_black(self):
+        for i in range(self.config.led_count):
+            self.strip.setPixelColor(i, Color(0,0,0))
+        self.strip.show()
 
     def show_progress(self, progress: int):
         """Show progress bar in white LEDs"""
