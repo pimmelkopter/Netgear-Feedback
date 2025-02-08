@@ -179,7 +179,7 @@ class SwitchMonitor:
             blink_states = calculate_blink_states()
             
             # Update LEDs
-            self.led_service.update_port_leds(port_led_map, self.port_info_cache, blink_states['blink_on'], blink_states["show_vlan"])
+            self.led_service.update_port_leds(port_led_map, self.port_info_cache, blink_states['blink_on'], blink_states["phase"])
             
             # Small sleep to prevent CPU hogging
             time.sleep(0.1)
