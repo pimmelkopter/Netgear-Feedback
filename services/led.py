@@ -81,33 +81,40 @@ class LEDService:
                 if 0 <= led_idx < self.config.led_count:
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
                 if 0 <= leds[-1] < self.config.led_count:
-                    if speed == 0 and not poe:
+                    if speed == 0:
                         self.strip.setPixelColor(leds[-1], Color(0,0,0))
                     else:
-                        self.strip.setPixelColor(
-                            leds[-1], 
-                            self._get_status_color(speed, poe, blink_on)
-                        )
+                        if poe:
+                            if blink_on:
+                              self.strip.setPixelColor(leds[-1], self._get_status_color(speed))
+                            else:
+                                self.strip.setPixelColor(leds[-1], Color(0,0,255))  # POE Blau
+                        else:  # Kein POE: nur Speed
+                            self.strip.setPixelColor(leds[-1], self._get_status_color(speed))
+            
         elif len(leds) == 1:
             # Single LED mode
             led_idx = leds[0]
             if 0 <= led_idx < self.config.led_count:
-                if show_vlan:
+                if speed == 0:
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
                 else:
-                    if speed == 0 and not poe:
-                        self.strip.setPixelColor(led_idx, Color(*vlan_color))
-                    else:
-                        self.strip.setPixelColor(
-                            led_idx,
-                            self._get_status_color(speed, poe, blink_on)
-                        )
+                    if poe:
+                        if show_vlan == 0:
+                            self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                        elif show_vlan == 1:
+                             self.strip.setPixelColor(led_idx, Color(0,0,255))
+                        else:
+                                self.strip.setPixelColor(led_idx, self._get_status_color(speed))
+                    else:  # Kein POE: VLAN/VLAN/Speed
+                        if show_vlan < 2:
+                            self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                        else:
+                            self.strip.setPixelColor(led_idx, self._get_status_color(speed))
+
 
     def _get_status_color(self, speed: int, poe_active: bool, blink_on: bool) -> int:
-        """Get LED color based on port status"""
-        if not blink_on:
-            return Color(0,0,255) if poe_active else Color(0,0,0)
-            
+        """Get LED color based on port status""" 
         if speed == 5:
             return Color(0,255,0)      # Gigabit
         elif speed == 4:

@@ -10,6 +10,7 @@ After=network.target
 
 [Service]
 Type=simple
+User=admin
 WorkingDirectory=${PROJECT_DIR}
 Environment=\"PYTHONPATH=${PROJECT_DIR}\"
 %s
@@ -33,6 +34,69 @@ create_service() {
     sudo tee "/etc/systemd/system/${name}.service" > /dev/null
 }
 
+# Nginx Konfiguration erstellen
+create_nginx_config() {
+    cat << 'EOL' | sudo tee /etc/nginx/sites-available/switch_monitor > /dev/null
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    
+    server_name _ connectivitycheck.gstatic.com connectivitycheck.android.com clients3.google.com;
+    
+    root /home/admin/Netgear-Feedback/web;
+    
+    location / {
+        proxy_pass http://unix:/tmp/switch_monitor.sock;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_buffering off;
+        proxy_read_timeout 1800;
+        proxy_connect_timeout 1800;
+    }
+    
+    location /generate_204 {
+        return 302 http://192.168.0.1/;
+    }
+    
+    location /ncsi.txt {
+        return 302 http://192.168.0.1/;
+    }
+    
+    location /hotspot-detect.html {
+        return 302 http://192.168.0.1/;
+    }
+
+    location /success.txt {
+        return 302 http://192.168.0.1/;
+    }
+}
+EOL
+}
+
+# DNSMasq Konfiguration erstellen
+create_dnsmasq_config() {
+    cat << 'EOL' | sudo tee /etc/dnsmasq.conf > /dev/null
+interface=wlan0
+dhcp-range=192.168.0.50,192.168.0.150,12h
+dhcp-option=3,192.168.0.1
+dhcp-option=6,192.168.0.1
+address=/#/192.168.0.1
+EOL
+}
+
+# Erstelle Tailwind CSS Datei
+create_tailwind_css() {
+    mkdir -p "${PROJECT_DIR}/web/static/css"
+    cat << 'EOL' > "${PROJECT_DIR}/web/static/css/tailwind.css"
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+EOL
+}
+
 echo "Starting installation..."
 
 # System packages
@@ -42,8 +106,9 @@ sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd netw
     libdbus-1-dev libdbus-glib-1-dev dbus nginx gunicorn
 
 # Remove old config
-echo "Removing old hotspot configuration..."
-sudo nmcli connection delete "MyHotspot" || true
+#echo "Removing old hotspot configuration..."
+#sudo nmcli connection delete "MyHotspot" || true
+#sudo nmcli connection delete "NetgearAP" || true
 
 # Create Python venv
 if [ ! -d "${PROJECT_DIR}/venv" ]; then
@@ -65,7 +130,7 @@ done
 # Create service files
 echo "Installing systemd services..."
 
-# Switch Monitor Service (jetzt mit Web UI integriert)
+# Switch Monitor Service
 create_service "switch_monitor" \
     "Switch Monitor Service" \
     "" \
@@ -86,12 +151,25 @@ done
 
 # Configure nginx
 echo "Configuring nginx..."
-sudo cp "${PROJECT_DIR}/setup/nginx/switch_monitor" /etc/nginx/sites-available/
+create_nginx_config
 sudo ln -sf /etc/nginx/sites-available/switch_monitor /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 
+# Configure dnsmasq
+echo "Configuring dnsmasq..."
+create_dnsmasq_config
+
+# Create Tailwind CSS
+echo "Creating Tailwind CSS..."
+create_tailwind_css
+
+# Set permissions
+sudo chown -R admin:admin "${PROJECT_DIR}/web"
+
+# Restart services
 sudo systemctl daemon-reload
 sudo systemctl restart nginx
+sudo systemctl restart dnsmasq
 
 sudo chmod +x setup/dev_tools/update.sh
 sudo chmod +x setup/dev_tools/git-reset.sh
