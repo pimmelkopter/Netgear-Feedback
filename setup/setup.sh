@@ -87,16 +87,6 @@ address=/#/192.168.0.1
 EOL
 }
 
-# Erstelle Tailwind CSS Datei
-create_tailwind_css() {
-    mkdir -p "${PROJECT_DIR}/web/static/css"
-    cat << 'EOL' > "${PROJECT_DIR}/web/static/css/tailwind.css"
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-EOL
-}
-
 echo "Starting installation..."
 
 # System packages
@@ -104,11 +94,6 @@ echo "Installing system packages..."
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager \
     libdbus-1-dev libdbus-glib-1-dev dbus nginx gunicorn
-
-# Remove old config
-#echo "Removing old hotspot configuration..."
-#sudo nmcli connection delete "MyHotspot" || true
-#sudo nmcli connection delete "NetgearAP" || true
 
 # Create Python venv
 if [ ! -d "${PROJECT_DIR}/venv" ]; then
@@ -158,10 +143,6 @@ sudo rm -f /etc/nginx/sites-enabled/default
 # Configure dnsmasq
 echo "Configuring dnsmasq..."
 create_dnsmasq_config
-
-# Create Tailwind CSS
-echo "Creating Tailwind CSS..."
-create_tailwind_css
 
 # Set permissions
 sudo chown -R admin:admin "${PROJECT_DIR}/web"
