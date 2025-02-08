@@ -150,7 +150,7 @@ def parse_vlan_color_for_port(
     
     return default_color
 
-def update_vlan_colors_from_map_and_random(config: Config, vlan_info: List[str]) -> None:
+def update_vlan_colors_from_map_and_random(config: Config, vlan_info: Dict[int, str]) -> None:
     """Update config with VLAN colors from map or generate random colors"""
     
     # Parse existing color map
@@ -181,5 +181,5 @@ def calculate_blink_states():
     blink_cycle = (time.time() * 10) % 20
     return {
         'blink_on': (int(blink_cycle) % 2) == 0,
-        'show_vlan': (int(blink_cycle) % 16) < 10
+        'phase': (int(blink_cycle) % 16) < 10
     }

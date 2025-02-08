@@ -31,7 +31,9 @@ mv git-reset.bak git-reset.sh
 cp src/claude-main.py src/main.py
 cp src/claude-utils.py src/utils.py
 
-git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh
+git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh && sudo systemctl start hotspot.service
+
+sudo systemctl stop hotspot.service && systemctl restart NetworkManager.service && sudo systemctl stop switch_monitor.service && sudo nmcli connection down NetgearAP && sudo nmcli connection delete NetgearAP && sudo systemctl restart NetworkManager.service && sleep 5 && sudo ifconfig wlan0 down && sleep 2 && sudo ifconfig wlan0 up && sudo nmcli device wifi rescan && sleep 2 && sudo nmcli device wifi list && sudo nmcli device wifi connect "Martin Router King" password "hideyokidshideyowifi" && nmcli connection show --active
 
 ./setup/dev_tools/update.sh
 echo "Update.sh durchgeführt"
