@@ -76,17 +76,18 @@ class LEDService:
             return
 
         if len(leds) >= 2:
-            # Two LED mode
-            if 0 <= leds[0] < self.config.led_count:
-                self.strip.setPixelColor(leds[0], Color(*vlan_color))
-            if 0 <= leds[1] < self.config.led_count:
-                if speed == 0 and not poe:
-                    self.strip.setPixelColor(leds[1], Color(*vlan_color))
-                else:
-                    self.strip.setPixelColor(
-                        leds[1], 
-                        self._get_status_color(speed, poe, blink_on)
-                    )
+            # Two LED mode 
+            for led_idx in leds[:-1]:
+                if 0 <= led_idx < self.config.led_count:
+                    self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                if 0 <= leds[-1] < self.config.led_count:
+                    if speed == 0 and not poe:
+                        self.strip.setPixelColor(leds[-1], Color(0,0,0))
+                    else:
+                        self.strip.setPixelColor(
+                            leds[-1], 
+                            self._get_status_color(speed, poe, blink_on)
+                        )
         elif len(leds) == 1:
             # Single LED mode
             led_idx = leds[0]

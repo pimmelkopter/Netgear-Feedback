@@ -32,10 +32,9 @@ class HotspotService:
         """Build nmcli commands for hotspot setup"""
         return [
             ["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"],
-            ["sudo", "nmcli", "connection", "delete", self.connection_name],
             ["sudo", "nmcli", "connection", "add",
              "type", "wifi",
-             "ifname", "*",  # Wildcard statt festes wlan0
+             "ifname", "wlan0", 
              "con-name", self.connection_name,
              "autoconnect", "yes",
              "ssid", self.ssid,
@@ -55,13 +54,13 @@ class HotspotService:
     def setup_hotspot(self) -> bool:
         try:
             # Check if a connection is up
-            check_cmd = ["sudo", "nmcli", "connection", "show", self.connection_name]
-            if subprocess.run(check_cmd, capture_output=True).returncode == 0:
-                # If connection is up - delete it
-                delete_cmd = ["sudo", "nmcli", "connection", "delete", self.connection_name]
-                subprocess.run(delete_cmd, check=True, capture_output=True)
-            
+            subprocess.run(
+                ["sudo", "nmcli", "connection", "delete", self.connection_name],
+                capture_output=True,
+                check=False  # Ignoriere Fehler beim Löschen
+            )
 
+            commands = self._build_commands()
             for cmd in self._commands[1:]:
                 result = subprocess.run(
                     cmd, 

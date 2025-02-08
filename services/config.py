@@ -16,6 +16,17 @@ class Config:
             cls._instance = super().__new__(cls)
             cls._load()
         return cls._instance
+    
+    def get_config(self) -> dict:
+        """Return complete config dictionary"""
+        return self._config
+
+    def save_config(self, config: dict):
+        """Save config to file"""
+        self._config = config
+        base_path = Path(__file__).parent.parent
+        with open(base_path / 'config' / 'config.json', 'w') as f:
+            json.dump(config, f, indent=2)
 
     @classmethod
     def _load(cls) -> None:
