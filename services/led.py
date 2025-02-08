@@ -93,8 +93,11 @@ class LEDService:
                         else:
                             self.strip.setPixelColor(leds[-1], Color(0,0,255))  # POE Blau
                     else:  # Kein POE: nur Speed
-                        self.strip.setPixelColor(leds[-1], self._get_speed_color(speed))
-        
+                        if blink_on:
+                            self.strip.setPixelColor(leds[-1], self._get_speed_color(speed))
+                        else:
+                            self.strip.setPixelColor(leds[-1], Color(0,0,0))
+
         elif len(leds) == 1:
             # Single LED Mode
             led_idx = leds[0]
@@ -108,13 +111,19 @@ class LEDService:
                         elif phase == 1:
                             self.strip.setPixelColor(led_idx, Color(0,0,255))  # POE Blau
                         else:
-                            self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
+                            if blink_on:
+                                self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
+                            else:
+                                self.strip.setPixelColor(led_idx, Color(0,0,0))
+
                     else:  # Kein POE: VLAN/VLAN/Speed
                         if phase < 2:
                             self.strip.setPixelColor(led_idx, Color(*vlan_color))
                         else:
-                            self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
-
+                            if blink_on:
+                                self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
+                            else:
+                                self.strip.setPixelColor(led_idx, Color(0,0,0))
 
     def _get_speed_color(self, speed: int) -> int:
         """Get LED color based on port speed"""
