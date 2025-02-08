@@ -49,9 +49,9 @@ def login_required(f):
 
 def status():
     return jsonify({
-        'hotspot_active': is_hotspot_active(),
-        'switch_connected': is_switch_connected(),
-        'uptime': get_uptime()
+        'hotspot_active': HotspotService.is_active(),
+        'switch_connected': SwitchMonitor.is_connected(),
+        'uptime': SwitchMonitor.get_uptime
     })
 
 def index():
