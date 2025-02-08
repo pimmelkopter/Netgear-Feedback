@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 SERVICE_TEMPLATE="[Unit]
 Description=%s
 After=network.target
@@ -37,7 +38,8 @@ echo "Starting installation..."
 # System packages
 echo "Installing system packages..."
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager libdbus-1-dev libdbus-glib-1-dev dbus
+sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager \
+    libdbus-1-dev libdbus-glib-1-dev dbus nginx gunicorn
 
 # Remove old config
 echo "Removing old hotspot configuration..."
@@ -63,6 +65,13 @@ done
 # Create service files
 echo "Installing systemd services..."
 
+# Switch Monitor Service (jetzt mit Web UI integriert)
+create_service "switch_monitor" \
+    "Switch Monitor Service" \
+    "" \
+    "Environment=\"OPENSSL_CONF=${PROJECT_DIR}/config/openssl.cnf\"\nEnvironment=\"FLASK_APP=wsgi.py\"\nEnvironment=\"FLASK_ENV=production\"" \
+    "-m src.main"
+
 # Hotspot Service
 create_service "hotspot" \
     "WiFi Hotspot Service" \
@@ -70,25 +79,20 @@ create_service "hotspot" \
     "" \
     "-m hotspot.hotspot"
 
-# Switch Monitor Service
-create_service "switch_monitor" \
-    "Switch Monitor Service" \
-    "" \
-    "Environment=\"OPENSSL_CONF=${PROJECT_DIR}/config/openssl.cnf\"" \
-    "-m src.main"
-
-# Web Interface Service
-create_service "web_interface" \
-    "Web Interface Service" \
-    "After=network.target hotspot.service\nRequires=hotspot.service" \
-    "-m hotspot.flask-server"
-
 # Enable services
-for service in switch_monitor hotspot web_interface; do
+for service in switch_monitor hotspot; do
     sudo systemctl enable $service.service
 done
 
+# Configure nginx
+echo "Configuring nginx..."
+sudo cp "${PROJECT_DIR}/setup/nginx/switch_monitor" /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/switch_monitor /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+
 sudo systemctl daemon-reload
+sudo systemctl restart nginx
+
 sudo chmod +x setup/dev_tools/update.sh
 sudo chmod +x setup/dev_tools/git-reset.sh
 sudo chmod +x setup/dev_tools/fixed-hotspot.sh

@@ -1,9 +1,12 @@
-flask>=2.0.0
-requests>=2.26.0
-urllib3>=1.26.0
-rpi-ws281x>=4.3.0
-python-networkmanager>=2.2.0
-cryptography>=3.4.0  # für SSL/TLS
-dnspython>=2.1.0    # für DNS-Handling
-pillow
-jwt
+flask==2.3.3
+Werkzeug==2.3.7
+requests==2.31.0
+urllib3==2.0.7
+rpi-ws281x==4.3.0
+python-networkmanager==2.2.0
+cryptography==41.0.7
+dnspython==2.4.2
+pillow==10.0.1
+PyJWT==2.8.0
+gunicorn==21.2.0
+python-dotenv==1.0.0

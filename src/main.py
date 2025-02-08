@@ -42,10 +42,14 @@ class SwitchMonitor:
         """Scan network for switch with visual progress"""
         logger.info("Starting network scan...")
         total = self.config.scan_range_end - self.config.scan_range_start + 1
-        
+        last_progress = 0
+
         def update_progress(progress: int):
+            nonlocal last_progress
             led_progress = int((progress / total) * self.config.led_count)
-            self.led_service.show_progress(led_progress)
+            if led_progress != last_progress:
+                self.led_service.show_progress(led_progress)
+                last_progress = led_progress
             
         self.api = SwitchAPI(progress_callback=update_progress)
         

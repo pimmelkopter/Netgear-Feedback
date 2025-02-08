@@ -22,6 +22,7 @@ class HotspotService:
         self.retry_count = 0
         self.max_retries = 3
         self._commands = self._build_commands()
+        self._should_stop = False
 
     def _generate_ssid(self) -> str:
         chars = string.ascii_letters + string.digits
@@ -106,11 +107,12 @@ class HotspotService:
         logger.info(f"Received shutdown signal {signum}")
         self.running = False
 
-    def run(self):
-        signal.signal(signal.SIGTERM, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
+    def stop(self):
+        """Methode zum sicheren Beenden des Services"""
+        self._should_stop = True
 
-        while self.running:
+    def run(self):
+        while not self._should_stop:
             if not self.setup_hotspot():
                 self.retry_count += 1
                 if self.retry_count >= self.max_retries:
@@ -120,7 +122,7 @@ class HotspotService:
                 time.sleep(30)
                 continue
 
-            while self.running:
+            while not self._should_stop:
                 if not self.get_status():
                     logger.warning("Hotspot connection lost, restarting...")
                     break
@@ -143,6 +145,8 @@ class HotspotService:
             return "activated" in result.stdout.lower()
         except Exception:
             return False
+        
+    
 
 if __name__ == "__main__":
     try:
