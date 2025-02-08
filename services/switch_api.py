@@ -23,6 +23,8 @@ class SwitchAPI:
 
     def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
         total = end - start + 1
+        last_progress = 0
+        
         for i in range(start, end + 1):
             new_progress = int((i - start) / total * self.config.led_count)
             if self.progress_callback and new_progress != last_progress:

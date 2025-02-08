@@ -29,12 +29,13 @@ class HotspotService:
         return ''.join(random.choice(chars) for _ in range(8)) + "-netgear"
 
     def _build_commands(self) -> List[List[str]]:
+        """Build nmcli commands for hotspot setup"""
         return [
             ["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"],
             ["sudo", "nmcli", "connection", "delete", self.connection_name],
             ["sudo", "nmcli", "connection", "add",
              "type", "wifi",
-             "ifname", "wlan0",
+             "ifname", "*",  # Wildcard statt festes wlan0
              "con-name", self.connection_name,
              "autoconnect", "yes",
              "ssid", self.ssid,
@@ -53,7 +54,15 @@ class HotspotService:
 
     def setup_hotspot(self) -> bool:
         try:
-            for cmd in self._commands:
+            # Check if a connection is up
+            check_cmd = ["sudo", "nmcli", "connection", "show", self.connection_name]
+            if subprocess.run(check_cmd, capture_output=True).returncode == 0:
+                # If connection is up - delete it
+                delete_cmd = ["sudo", "nmcli", "connection", "delete", self.connection_name]
+                subprocess.run(delete_cmd, check=True, capture_output=True)
+            
+
+            for cmd in self._commands[1:]:
                 result = subprocess.run(
                     cmd, 
                     check=True, 
@@ -73,6 +82,10 @@ class HotspotService:
             return False
         except subprocess.CalledProcessError as e:
             logger.error(f"Error setting up hotspot: {e}")
+            if e.stderr:
+                logger.error(f"Command stderr: {e.stderr}")
+            if e.stdout:
+                logger.error(f"Command stdout: {e.stdout}")
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
