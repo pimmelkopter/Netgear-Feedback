@@ -32,13 +32,7 @@ class HotspotService:
         """Build nmcli commands for hotspot setup"""
         return [
             ["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"],
-            # Stop dnsmasq if running
-            ["sudo", "systemctl", "stop", "dnsmasq"],
-            # Configure dnsmasq
-            ["sudo", "sh", "-c", "echo 'interface=wlan0\ndhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h\naddress=/#/192.168.0.1' > /etc/dnsmasq.conf"],
-            # Start dnsmasq
-            ["sudo", "systemctl", "start", "dnsmasq"],
-            # Setup NetworkManager connection
+            # Setup NetworkManager connection first
             ["sudo", "nmcli", "connection", "add",
              "type", "wifi",
              "ifname", "wlan0", 
@@ -54,8 +48,7 @@ class HotspotService:
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv4.addresses", "192.168.0.1/24"],
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
-             "ipv6.method", "ignore"],
-            ["sudo", "nmcli", "connection", "up", self.connection_name]
+             "ipv6.method", "ignore"]
         ]
 
     def setup_hotspot(self) -> bool:
@@ -64,20 +57,50 @@ class HotspotService:
             subprocess.run(
                 ["sudo", "nmcli", "connection", "delete", self.connection_name],
                 capture_output=True,
-                check=False  # Ignoriere Fehler beim Löschen
+                check=False
+            )
+            
+            # Stop dnsmasq if running
+            subprocess.run(
+                ["sudo", "systemctl", "stop", "dnsmasq"],
+                check=True,
+                timeout=10
             )
 
-            commands = self._build_commands()
-            for cmd in self._commands[1:]:
+            # Execute main setup commands
+            for cmd in self._build_commands():
                 result = subprocess.run(
-                    cmd, 
-                    check=True, 
-                    capture_output=True, 
+                    cmd,
+                    check=True,
+                    capture_output=True,
                     text=True,
                     timeout=30
                 )
                 if result.stderr:
                     logger.warning(f"Warning during command {cmd}: {result.stderr}")
+
+            # Configure dnsmasq
+            subprocess.run(
+                ["sudo", "sh", "-c", "echo 'interface=wlan0\\ndhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h\\naddress=/#/192.168.0.1' > /etc/dnsmasq.conf"],
+                check=True,
+                timeout=10
+            )
+
+            # Start dnsmasq
+            subprocess.run(
+                ["sudo", "systemctl", "start", "dnsmasq"],
+                check=True,
+                timeout=10
+            )
+
+            # Finally, bring up the connection
+            subprocess.run(
+                ["sudo", "nmcli", "connection", "up", self.connection_name],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
 
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             self.retry_count = 0
@@ -100,9 +123,9 @@ class HotspotService:
     def cleanup(self) -> bool:
         try:
             for cmd in [
-                ["sudo", "systemctl", "stop", "dnsmasq"],
                 ["sudo", "nmcli", "connection", "down", self.connection_name],
-                ["sudo", "nmcli", "connection", "delete", self.connection_name]
+                ["sudo", "nmcli", "connection", "delete", self.connection_name],
+                ["sudo", "systemctl", "stop", "dnsmasq"]
             ]:
                 subprocess.run(cmd, check=False, timeout=10)
             return True
