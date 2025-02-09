@@ -92,7 +92,7 @@ echo "Starting installation..."
 echo "Installing system packages..."
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git jq dnsmasq hostapd network-manager \
-    libdbus-1-dev libdbus-glib-1-dev dbus nginx gunicorn
+    libdbus-1-dev libdbus-glib-1-dev dbus nginx gunicorn iptables
 
 # Create Python venv
 if [ ! -d "${PROJECT_DIR}/venv" ]; then
