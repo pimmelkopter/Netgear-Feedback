@@ -77,47 +77,49 @@ class LEDService:
             return
 
         if len(leds) >= 2:
-            # Mehrere LEDs: Alle außer letzte zeigen VLAN
+            # Multi-LED Mode - all except last show VLAN color
             for led_idx in leds[:-1]:
                 if 0 <= led_idx < self.config.led_count:
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
             
-            # Letzte LED: POE/Speed Indikation
+            # Last LED: POE/Speed indication
             if 0 <= leds[-1] < self.config.led_count:
                 if speed == 0:  # Kein Link
                     self.strip.setPixelColor(leds[-1], Color(0,0,0))
                 else:
                     if poe:  # POE aktiv: zwischen POE und Speed wechseln
-                        if blink_on:
-                            self.strip.setPixelColor(leds[-1], self._get_speed_color(speed))
+                        if phase % 2 == 0:
+                            self.strip.setPixelColor(leds[-1], Color(0,0,255))  # POE Blue
                         else:
-                            self.strip.setPixelColor(leds[-1], Color(0,0,255))  # POE Blau
-                    else:  # Kein POE: nur Speed
+                            if blink_on:
+                                self.strip.setPixelColor(leds[-1], self._get_speed_color(speed))
+                            else:
+                                self.strip.setPixelColor(leds[-1], Color(0,0,0))
+                    else:  # No POE: only speed blinking
                         if blink_on:
                             self.strip.setPixelColor(leds[-1], self._get_speed_color(speed))
                         else:
                             self.strip.setPixelColor(leds[-1], Color(0,0,0))
 
         elif len(leds) == 1:
-            # Single LED Mode
+        # Single LED Mode
             led_idx = leds[0]
             if 0 <= led_idx < self.config.led_count:
-                if speed == 0:  # Kein Link
+                if speed == 0:  # No link
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
                 else:
-                    if poe:  # POE aktiv: 3-Phasen Zyklus
-                        if phase == 0:
+                    if poe:  # POE active: 3-way cycle
+                        if phase % 3 == 0:
                             self.strip.setPixelColor(led_idx, Color(*vlan_color))
-                        elif phase == 1:
-                            self.strip.setPixelColor(led_idx, Color(0,0,255))  # POE Blau
+                        elif phase % 3 == 1:
+                            self.strip.setPixelColor(led_idx, Color(0,0,255))  # POE Blue
                         else:
                             if blink_on:
                                 self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
                             else:
                                 self.strip.setPixelColor(led_idx, Color(0,0,0))
-
-                    else:  # Kein POE: VLAN/VLAN/Speed
-                        if phase < 2:
+                    else:  # No POE: alternate between VLAN and Speed
+                        if phase % 2 == 0:
                             self.strip.setPixelColor(led_idx, Color(*vlan_color))
                         else:
                             if blink_on:

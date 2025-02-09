@@ -1,5 +1,4 @@
 #!/bin/bash
-cp git-reset.sh git-reset.bak
 echo -e "\033[31m Bitte ans Internet anschließen! \033[0m"
 sleep 10
 echo "Stelle Verbindung auf DHCP um... - wenn die Nachricht länger als 30s bleibt drücke Strg+C"
@@ -18,6 +17,8 @@ while ! ping -c 1 google.com &>/dev/null; do
     elapsed=$((elapsed + interval))
     if [ $elapsed -ge $timeout ]; then
         echo "Kein Internet - bitte Einstellungen überprüfen."
+        ./setup/dev_tools/update.sh
+        echo "Update.sh durchgeführt zum reset der network settings"
         exit 1
     fi
 done
@@ -26,16 +27,12 @@ echo -e "\033[1;32m Internetverbindung hergestellt! \033[0m"
 git fetch origin
 git reset --hard origin/raspberrypi
 
-mv git-reset.bak git-reset.sh
 
-cp src/claude-main.py src/main.py
-cp src/claude-utils.py src/utils.py
+# git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh && sudo systemctl start hotspot.service
 
-git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh && sudo systemctl start hotspot.service
-
-sudo systemctl stop hotspot.service && systemctl restart NetworkManager.service && sudo systemctl stop switch_monitor.service 
-sudo nmcli device wifi rescan
-sudo nmcli device wifi connect "Martin Router King" password "hideyokidshideyowifi"
+# sudo systemctl stop hotspot.service && systemctl restart NetworkManager.service && sudo systemctl stop switch_monitor.service 
+# sudo nmcli device wifi rescan
+# sudo nmcli device wifi connect "Martin Router King" password "hideyokidshideyowifi"
 
 ./setup/dev_tools/update.sh
 echo "Update.sh durchgeführt"
@@ -47,5 +44,3 @@ sleep 10
 sudo systemctl status switch_monitor.service --no-pager
 sleep 2
 sudo journalctl -b -u switch_monitor.service --no-pager --since -10m
-sleep 10
-sudo reboot
