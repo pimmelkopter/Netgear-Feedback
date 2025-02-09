@@ -1,3 +1,4 @@
+<!-- web/templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Switch VLAN Management</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}" />
-  <meta name="csrf-token" content="{{ get_csrf_token() }}">
   
   <style>
     .port-button.selected, .vlan-button.selected {
@@ -33,7 +33,6 @@
         <p class="mt-2 text-center text-sm text-gray-600">Please sign in to continue</p>
       </div>
       <form class="mt-8 space-y-6" action="/login" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
         <div class="rounded-md shadow-sm -space-y-px">
           <div>
             <label for="username" class="sr-only">Username</label>
@@ -169,7 +168,6 @@
     const selectedVlan = {
       value: null,
       pending: {},
-      csrfToken: document.querySelector('meta[name="csrf-token"]').content
     };
 
     function updatePortColors() {
@@ -266,8 +264,7 @@
           const response = await fetch(`/api/switch/port/${port}`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': selectedVlan.csrfToken
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ vlan })
           });

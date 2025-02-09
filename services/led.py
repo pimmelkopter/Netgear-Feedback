@@ -68,26 +68,29 @@ class LEDService:
         self, leds: List[int], vlan_color: Tuple[int, int, int], 
         speed: int, poe: bool, blink_on: bool, phase: int
     ):
-        """Update LEDs for a single port"""
+        """Update LEDs for a single port based on configured leds_per_port"""
         if not self.config.port_stats:
-            # Wenn keine Port-Stats, zeige nur VLAN-Farbe
+            # If no port stats, show only VLAN color
             for led_idx in leds:
                 if 0 <= led_idx < self.config.led_count:
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
             return
 
-        if len(leds) >= 2:
+        # Check configured mode instead of actual LED list length
+        configured_leds_per_port = self.config.get('leds_per_port', 1)
+        
+        if configured_leds_per_port >= 2:
             # Multi-LED Mode - all except last show VLAN color
             for led_idx in leds[:-1]:
                 if 0 <= led_idx < self.config.led_count:
                     self.strip.setPixelColor(led_idx, Color(*vlan_color))
             
             # Last LED: POE/Speed indication
-            if 0 <= leds[-1] < self.config.led_count:
-                if speed == 0:  # Kein Link
+            if leds and 0 <= leds[-1] < self.config.led_count:
+                if speed == 0:  # No link
                     self.strip.setPixelColor(leds[-1], Color(0,0,0))
                 else:
-                    if poe:  # POE aktiv: zwischen POE und Speed wechseln
+                    if poe:  # POE active: alternate between POE and Speed
                         if phase % 2 == 0:
                             self.strip.setPixelColor(leds[-1], Color(0,0,255))  # POE Blue
                         else:
@@ -101,31 +104,30 @@ class LEDService:
                         else:
                             self.strip.setPixelColor(leds[-1], Color(0,0,0))
 
-        elif len(leds) == 1:
-        # Single LED Mode
-            led_idx = leds[0]
-            if 0 <= led_idx < self.config.led_count:
+        else:
+            # Single LED Mode - use first LED only
+            if leds and 0 <= leds[0] < self.config.led_count:
                 if speed == 0:  # No link
-                    self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                    self.strip.setPixelColor(leds[0], Color(*vlan_color))
                 else:
                     if poe:  # POE active: 3-way cycle
                         if phase % 3 == 0:
-                            self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                            self.strip.setPixelColor(leds[0], Color(*vlan_color))
                         elif phase % 3 == 1:
-                            self.strip.setPixelColor(led_idx, Color(0,0,255))  # POE Blue
+                            self.strip.setPixelColor(leds[0], Color(0,0,255))  # POE Blue
                         else:
                             if blink_on:
-                                self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
+                                self.strip.setPixelColor(leds[0], self._get_speed_color(speed))
                             else:
-                                self.strip.setPixelColor(led_idx, Color(0,0,0))
+                                self.strip.setPixelColor(leds[0], Color(0,0,0))
                     else:  # No POE: alternate between VLAN and Speed
                         if phase % 2 == 0:
-                            self.strip.setPixelColor(led_idx, Color(*vlan_color))
+                            self.strip.setPixelColor(leds[0], Color(*vlan_color))
                         else:
                             if blink_on:
-                                self.strip.setPixelColor(led_idx, self._get_speed_color(speed))
+                                self.strip.setPixelColor(leds[0], self._get_speed_color(speed))
                             else:
-                                self.strip.setPixelColor(led_idx, Color(0,0,0))
+                                self.strip.setPixelColor(leds[0], Color(0,0,0))
 
     def _get_speed_color(self, speed: int) -> int:
         """Get LED color based on port speed"""

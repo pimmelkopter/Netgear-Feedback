@@ -1,3 +1,4 @@
+# web/routes.py #
 from flask import Blueprint, request, jsonify, current_app
 from functools import wraps
 import jwt

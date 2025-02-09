@@ -1,11 +1,10 @@
+## services/webinterface.py ##
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from flask_wtf.csrf import CSRFProtect, generate_csrf
 from functools import wraps
 import jwt
 import os
 from datetime import datetime, timedelta
 import logging
-import subprocess
 from .switch_api import SwitchAPI
 from .interfaces import SwitchMonitorInterface, HotspotServiceInterface
 from .config import Config
@@ -17,7 +16,6 @@ class WebService:
         self.switch_monitor = switch_monitor
         self.hotspot_service = hotspot_service
         
-        # Template und Static Pfade
         template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'templates'))
         static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'static'))
         
@@ -27,17 +25,6 @@ class WebService:
         
         self.config = Config()
         self.app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
-        self.app.config['WTF_CSRF_SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
-        self.app.config['WTF_CSRF_ENABLED'] = False
-        self.app.config.update(
-            SESSION_COOKIE_SECURE=True,
-            SESSION_COOKIE_HTTPONLY=True,
-            SESSION_COOKIE_SAMESITE='Lax',
-            WTF_CSRF_CHECK_DEFAULT=False  # Nur für ausgewählte Routes aktivieren
-        )
-        
-        # CSRF Protection initialisieren
-        self.csrf = CSRFProtect(self.app)
         
         self.setup_routes()
 
@@ -55,31 +42,37 @@ class WebService:
         return decorated
 
     def setup_routes(self):
-        
-        csrf = CSRFProtect()
-        csrf.init_app(self.app)
-        
-        @self.app.context_processor
-        def utility_processor():
-            def get_csrf_token():
-                return generate_csrf()
-            return dict(csrf_token=get_csrf_token)
-        
         @self.app.route('/')
         @self.login_required
         def index():
             try:
+                # Default VLAN für alle Ports ist 1
                 port_vlans = {i: 1 for i in range(1, self.config.port_count + 1)}
-                vlan_colors = {
-                    int(k.replace('vlan', '').split('_')[0]): v 
-                    for k, v in self.config._config.items() 
-                    if k.startswith('vlan') and k.endswith('_color')
-                }
-                vlan_names = {
-                    int(k.replace('vlan', '').split('_')[0]): k.split('_')[1]
-                    for k, v in self.config._config.items()
-                    if k.startswith('vlan') and '_color' in k
-                }
+                
+                # VLAN Farben und Namen aus der Konfiguration extrahieren
+                vlan_colors = {}
+                vlan_names = {}
+                
+                for key, value in self.config._config.items():
+                    if key.startswith('vlan') and key.endswith('_color'):
+                        try:
+                            # Extrahiere VLAN ID und ignoriere leere oder ungültige Werte
+                            vlan_id_str = key.replace('vlan', '').split('_')[0]
+                            if vlan_id_str and vlan_id_str.isdigit():
+                                vlan_id = int(vlan_id_str)
+                                vlan_colors[vlan_id] = value
+                                
+                                # Finde den zugehörigen Namen
+                                name_key = f"vlan{vlan_id}_name"
+                                vlan_names[vlan_id] = self.config.get(name_key, f"VLAN {vlan_id}")
+                        except (ValueError, IndexError) as e:
+                            logger.warning(f"Skipping invalid VLAN config entry: {key} - {e}")
+                            continue
+                
+                # Stelle sicher, dass mindestens VLAN 1 existiert
+                if not vlan_colors:
+                    vlan_colors[1] = "#808080"  # Standard-Grau
+                    vlan_names[1] = "Default VLAN"
                 
                 return render_template('index.html', 
                                     show_login=False,
@@ -145,16 +138,6 @@ class WebService:
             except Exception as e:
                 logger.error(f"Error updating port: {e}")
                 return jsonify({'status': 'error', 'message': str(e)}), 500
-
-        @self.app.context_processor
-        def inject_csrf_token():
-            return dict(csrf_token=generate_csrf())
-
-        @self.app.after_request
-        def add_csrf_cookie(response):
-            if 'csrf_token' not in session:
-                session['csrf_token'] = generate_csrf()
-            return response
 
     def run(self, host='0.0.0.0', port=5000, debug=False):
         self.app.run(host=host, port=port, debug=debug)

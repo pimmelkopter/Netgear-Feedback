@@ -40,11 +40,13 @@ create_nginx_config() {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-
-    server_name _ connectivitycheck.gstatic.com connectivitycheck.android.com clients3.google.com;
-
+    
+    # Add netgear.switch to server names
+    server_name _ connectivitycheck.gstatic.com connectivitycheck.android.com clients3.google.com netgear.switch;
+    
     root /home/admin/Netgear-Feedback/web;
-
+    
+    # Redirect all captive portal detection URLs to our interface
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
@@ -52,19 +54,20 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
-
+    
+    # Handle all captive portal detection endpoints
     location /generate_204 {
         return 302 http://192.168.0.1/;
     }
-
+    
     location /ncsi.txt {
         return 302 http://192.168.0.1/;
     }
-
+    
     location /hotspot-detect.html {
         return 302 http://192.168.0.1/;
     }
-
+    
     location /success.txt {
         return 302 http://192.168.0.1/;
     }
