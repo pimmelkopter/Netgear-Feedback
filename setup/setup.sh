@@ -40,31 +40,27 @@ create_nginx_config() {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    
+
     server_name _ connectivitycheck.gstatic.com connectivitycheck.android.com clients3.google.com;
-    
+
     root /home/admin/Netgear-Feedback/web;
-    
+
     location / {
-        proxy_pass http://unix:/tmp/switch_monitor.sock;
+        proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_redirect off;
-        proxy_buffering off;
-        proxy_read_timeout 1800;
-        proxy_connect_timeout 1800;
     }
-    
+
     location /generate_204 {
         return 302 http://192.168.0.1/;
     }
-    
+
     location /ncsi.txt {
         return 302 http://192.168.0.1/;
     }
-    
+
     location /hotspot-detect.html {
         return 302 http://192.168.0.1/;
     }

@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 from functools import wraps
 import jwt
+import os
 from datetime import datetime, timedelta
 import logging
 import subprocess
@@ -10,29 +12,32 @@ from .config import Config
 
 logger = logging.getLogger(__name__)
 
-def check_dependencies():
-    try:
-        subprocess.run(["nmcli", "--version"], check=True, capture_output=True)
-        return True
-    except ImportError:
-        logger.error("Flask not installed. Please install with: pip install flask")
-        return False
-    except FileNotFoundError:
-        logger.error("nmcli not found. Please install NetworkManager")
-        return False
-
 class WebService:
     def __init__(self, switch_monitor: SwitchMonitorInterface, hotspot_service: HotspotServiceInterface):
         self.switch_monitor = switch_monitor
         self.hotspot_service = hotspot_service
-        self.app = Flask(__name__)
+        
+        # Template und Static Pfade
+        template_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'templates'))
+        static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'web', 'static'))
+        
+        self.app = Flask(__name__,
+                        template_folder=template_dir,
+                        static_folder=static_dir)
+        
         self.config = Config()
         self.app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
+        self.app.config['WTF_CSRF_SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         self.app.config.update(
             SESSION_COOKIE_SECURE=True,
             SESSION_COOKIE_HTTPONLY=True,
-            SESSION_COOKIE_SAMESITE='Lax'
+            SESSION_COOKIE_SAMESITE='Lax',
+            WTF_CSRF_CHECK_DEFAULT=False  # Nur für ausgewählte Routes aktivieren
         )
+        
+        # CSRF Protection initialisieren
+        self.csrf = CSRFProtect(self.app)
+        
         self.setup_routes()
 
     def login_required(self, f):
@@ -52,24 +57,28 @@ class WebService:
         @self.app.route('/')
         @self.login_required
         def index():
-            port_vlans = {i: 1 for i in range(1, self.config.port_count + 1)}
-            vlan_colors = {
-                int(k.replace('vlan', '').split('_')[0]): v 
-                for k, v in self.config._config.items() 
-                if k.startswith('vlan') and k.endswith('_color')
-            }
-            vlan_names = {
-                int(k.replace('vlan', '').split('_')[0]): k.split('_')[1]
-                for k, v in self.config._config.items()
-                if k.startswith('vlan') and '_color' in k
-            }
-            
-            return render_template('index.html', 
-                                show_login=False,
-                                port_vlans=port_vlans,
-                                vlan_colors=vlan_colors,
-                                vlan_names=vlan_names,
-                                script_running=True)
+            try:
+                port_vlans = {i: 1 for i in range(1, self.config.port_count + 1)}
+                vlan_colors = {
+                    int(k.replace('vlan', '').split('_')[0]): v 
+                    for k, v in self.config._config.items() 
+                    if k.startswith('vlan') and k.endswith('_color')
+                }
+                vlan_names = {
+                    int(k.replace('vlan', '').split('_')[0]): k.split('_')[1]
+                    for k, v in self.config._config.items()
+                    if k.startswith('vlan') and '_color' in k
+                }
+                
+                return render_template('index.html', 
+                                    show_login=False,
+                                    port_vlans=port_vlans,
+                                    vlan_colors=vlan_colors,
+                                    vlan_names=vlan_names,
+                                    script_running=True)
+            except Exception as e:
+                logger.error(f"Error rendering template: {e}")
+                return str(e), 500
 
         @self.app.route('/api/status')
         @self.login_required
@@ -82,8 +91,15 @@ class WebService:
 
         @self.app.route('/login', methods=['POST'])
         def login():
-            username = request.form.get('username')
-            password = request.form.get('password')
+            if request.is_json:
+                # API Login
+                data = request.get_json()
+                username = data.get('username')
+                password = data.get('password')
+            else:
+                # Form Login
+                username = request.form.get('username')
+                password = request.form.get('password')
             
             if username == self.config.username and password == self.config.password:
                 token = jwt.encode({
@@ -91,7 +107,11 @@ class WebService:
                     'exp': datetime.utcnow() + timedelta(hours=8)
                 }, self.app.config['SECRET_KEY'])
                 session['token'] = token
-                return jsonify({'status': 'success'})
+                
+                if request.is_json:
+                    return jsonify({'status': 'success'})
+                else:
+                    return redirect(url_for('index'))
             
             return render_template('index.html', show_login=True, error="Invalid credentials")
 
@@ -115,18 +135,15 @@ class WebService:
                 logger.error(f"Error updating port: {e}")
                 return jsonify({'status': 'error', 'message': str(e)}), 500
 
+        @self.app.context_processor
+        def inject_csrf_token():
+            return dict(csrf_token=generate_csrf())
+
+        @self.app.after_request
+        def add_csrf_cookie(response):
+            if 'csrf_token' not in session:
+                session['csrf_token'] = generate_csrf()
+            return response
+
     def run(self, host='0.0.0.0', port=5000, debug=False):
         self.app.run(host=host, port=port, debug=debug)
-
-if __name__ == '__main__':
-    # This is just for development/testing
-    from .config import Config
-    class MockMonitor:
-        def is_connected(self): return True
-        def get_uptime(self): return 0
-    
-    class MockHotspot:
-        def is_active(self): return True
-    
-    service = WebService(MockMonitor(), MockHotspot())
-    service.run(debug=True)

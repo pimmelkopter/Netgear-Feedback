@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Basis Stile */
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Utility Klassen */
+.bg-gray-100 { background-color: #f3f4f6; }
+.bg-white { background-color: #ffffff; }
+.text-gray-600 { color: #4b5563; }
+.text-gray-900 { color: #111827; }
+.rounded-lg { border-radius: 0.5rem; }
+.shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+.p-8 { padding: 2rem; }
+.mb-8 { margin-bottom: 2rem; }
+.w-full { width: 100%; }
+.max-w-md { max-width: 28rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.font-bold { font-weight: 700; }
+.space-y-6 > * + * { margin-top: 1.5rem; }
