@@ -28,6 +28,7 @@ class WebService:
         self.config = Config()
         self.app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         self.app.config['WTF_CSRF_SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
+        self.app.config['WTF_CSRF_ENABLED'] = False
         self.app.config.update(
             SESSION_COOKIE_SECURE=True,
             SESSION_COOKIE_HTTPONLY=True,
@@ -54,6 +55,16 @@ class WebService:
         return decorated
 
     def setup_routes(self):
+        
+        csrf = CSRFProtect()
+        csrf.init_app(self.app)
+        
+        @self.app.context_processor
+        def utility_processor():
+            def get_csrf_token():
+                return generate_csrf()
+            return dict(csrf_token=get_csrf_token)
+        
         @self.app.route('/')
         @self.login_required
         def index():
