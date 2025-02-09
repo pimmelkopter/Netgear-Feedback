@@ -32,6 +32,13 @@ class HotspotService:
         """Build nmcli commands for hotspot setup"""
         return [
             ["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"],
+            # Stop dnsmasq if running
+            ["sudo", "systemctl", "stop", "dnsmasq"],
+            # Configure dnsmasq
+            ["sudo", "sh", "-c", "echo 'interface=wlan0\ndhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h\naddress=/#/192.168.0.1' > /etc/dnsmasq.conf"],
+            # Start dnsmasq
+            ["sudo", "systemctl", "start", "dnsmasq"],
+            # Setup NetworkManager connection
             ["sudo", "nmcli", "connection", "add",
              "type", "wifi",
              "ifname", "wlan0", 
@@ -46,8 +53,6 @@ class HotspotService:
              "ipv4.method", "shared"],
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv4.addresses", "192.168.0.1/24"],
-            ["sudo", "nmcli", "connection", "modify", self.connection_name,
-            "ipv4.dns", "192.168.0.1"],  # DNS Server setzen
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv6.method", "ignore"],
             ["sudo", "nmcli", "connection", "up", self.connection_name]
@@ -95,6 +100,7 @@ class HotspotService:
     def cleanup(self) -> bool:
         try:
             for cmd in [
+                ["sudo", "systemctl", "stop", "dnsmasq"],
                 ["sudo", "nmcli", "connection", "down", self.connection_name],
                 ["sudo", "nmcli", "connection", "delete", self.connection_name]
             ]:

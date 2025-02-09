@@ -27,12 +27,15 @@ echo -e "\033[1;32m Internetverbindung hergestellt! \033[0m"
 git fetch origin
 git reset --hard origin/raspberrypi
 
+# sudo nmcli connection delete "Wired connection 1" && sudo nmcli connection add type ethernet ifname eth0 con-name "Wired connection 1" ipv4.method auto ipv6.method ignore && sudo nmcli connection up "Wired connection 1"
 
 # git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh && sudo systemctl start hotspot.service
 
 # sudo systemctl stop hotspot.service && systemctl restart NetworkManager.service && sudo systemctl stop switch_monitor.service 
 # sudo nmcli device wifi rescan
 # sudo nmcli device wifi connect "Martin Router King" password "hideyokidshideyowifi"
+
+# sudo journalctl -u switch_monitor.service -f
 
 ./setup/dev_tools/update.sh
 echo "Update.sh durchgeführt"
