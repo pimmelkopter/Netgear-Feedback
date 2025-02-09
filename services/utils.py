@@ -11,6 +11,60 @@ logger = logging.getLogger(__name__)
 RGB = Tuple[int, int, int]
 PortMapping = Dict[int, List[int]]
 
+class VLANColorManager:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+        
+    def __init__(self):
+        if not self._initialized:
+            self.config = Config()
+            self.color_cache = {}
+            self.refresh_cache()
+            self._initialized = True
+    
+    def refresh_cache(self):
+        """Rebuild the complete color mapping cache"""
+        self.color_cache.clear()
+        
+        if self.config.scan_vlans:
+            # When scanning VLANs, use vlan_color_map and generate random colors
+            color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
+            self.color_cache = color_map
+        else:
+            # Use explicit VLAN colors from config
+            config_dict = self.config.get_config()
+            
+            # First pass: Get colors from vlanX_NAME_color entries
+            for key, value in config_dict.items():
+                if key.startswith('vlan') and '_color' in key:
+                    try:
+                        vlan_id = int(key.replace('vlan', '').split('_')[0])
+                        self.color_cache[vlan_id] = parse_rgb_string(value)
+                    except (ValueError, IndexError):
+                        continue
+            
+            # Second pass: Fill missing entries from vlan_color_map
+            color_map = parse_vlan_color_map(config_dict.get('vlan_color_map', ''))
+            for vlan_id, color in color_map.items():
+                if vlan_id not in self.color_cache:
+                    self.color_cache[vlan_id] = color
+    
+    def get_vlan_color(self, vlan_id: int) -> RGB:
+        """Get color for VLAN ID using cached values"""
+        if vlan_id in self.color_cache:
+            return self.color_cache[vlan_id]
+        
+        # Return default color if no mapping found
+        default_color = parse_rgb_string(
+            self.config.get('default_vlan_color', '0,0,255')
+        )
+        return default_color
+
 def parse_port_led_mapping(config: Config) -> PortMapping:
     """
     Parse port to LED mapping based on configuration.
@@ -126,32 +180,10 @@ def parse_vlan_color_map(mapping_str: str) -> Dict[int, RGB]:
             logger.warning(f"Error parsing VLAN color mapping {pair}: {e}")
     return result
 
-def parse_vlan_color_for_port(
-    vlans: List[int],
-    config: Config,
-    default_color: RGB,
-    vlan_map: Optional[Dict[int, RGB]] = None
-) -> RGB:
-    """Get color for VLAN(s), checking config and map with fallback to default"""
-    if not vlans:
-        return default_color
-    
-    vlan_id = vlans[0]
-    
-    if config.scan_vlans:
-        if vlan_map and vlan_id in vlan_map:
-            return vlan_map[vlan_id]
-        return default_color
-    for key, value in config.get_config().items():
-        if key.startswith(f"vlan{vlan_id}_") and key.endswith("_color"):
-            return parse_rgb_string(value)
-    if vlan_map and vlan_id in vlan_map:
-        return vlan_map[vlan_id]
-    
-    return default_color
-
 def update_vlan_colors_from_map_and_random(config: Config, vlan_info: Dict[int, str]) -> None:
     """Update config with VLAN colors from map or generate random colors"""
+    # Get color manager instance
+    color_manager = VLANColorManager()
     
     # Parse existing color map
     color_map = parse_vlan_color_map(config.get('vlan_color_map', ''))
@@ -176,6 +208,9 @@ def update_vlan_colors_from_map_and_random(config: Config, vlan_info: Dict[int, 
         config_dict.update(updates)
         config_dict['scan_vlans'] = False
         config.save_config(config_dict)
+        
+        # Refresh color cache after config update
+        color_manager.refresh_cache()
 
 def calculate_blink_states():
     blink_cycle = (time.time() * 10) % 20

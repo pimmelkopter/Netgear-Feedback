@@ -8,6 +8,7 @@ import logging
 from .switch_api import SwitchAPI
 from .interfaces import SwitchMonitorInterface, HotspotServiceInterface
 from .config import Config
+from .utils import VLANColorManager
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,7 @@ class WebService:
                     port_vlans = {port: 1 for port in range(1, self.config.port_count + 1)}
 
                 # VLAN-Farben und Namen aus der Konfiguration
+                color_manager = VLANColorManager()
                 vlan_colors = {}
                 vlan_names = {}
                 
@@ -73,7 +75,7 @@ class WebService:
                             name = parts[1]
                             
                             # Parse RGB values
-                            r, g, b = map(int, value.split(','))
+                            r, g, b = color_manager.get_vlan_color(vlan_id)
                             vlan_colors[vlan_id] = f"rgb({r},{g},{b})"
                             vlan_names[vlan_id] = name
                         except (ValueError, IndexError):

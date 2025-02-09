@@ -13,9 +13,9 @@ from services.led import LEDService
 from services.utils import (
     parse_port_led_mapping,
     parse_vlan_color_map,
-    parse_vlan_color_for_port,
     update_vlan_colors_from_map_and_random,
-    calculate_blink_states
+    calculate_blink_states,
+    VLANColorManager
 )
 
 # Logging setup
@@ -155,12 +155,8 @@ class SwitchMonitor:
 
     def _get_vlan_color(self, vlan_id: int, color_map: Dict[int, tuple]) -> tuple:
         """Get color for VLAN ID"""
-        return parse_vlan_color_for_port(
-            [vlan_id],
-            self.config,
-            (0,0,255),  # Default blue
-            color_map
-        )
+        color_manager = VLANColorManager()
+        return color_manager.get_vlan_color(vlan_id)
 
     def main_loop(self):
         """Main monitoring loop"""
