@@ -162,23 +162,37 @@ class SwitchMonitor:
         """Main monitoring loop"""
         port_led_map = parse_port_led_mapping(self.config)
         last_update = 0
+        LED_UPDATE_INTERVAL = 0.1
         
         while self.running:
             current_time = time.time()
             
             # Update port info at configured interval
             if current_time - last_update >= self.config.update_interval:
-                self.update_port_info()
-                last_update = current_time
+                try:
+                    self.update_port_info()
+                    last_update = current_time
+                except Exception as e:
+                    logger.error(f"Error updating port info: {e}")
             
-            # Calculate blink states
-            blink_states = calculate_blink_states()
+            # Update LEDs at fixed interval
+            if current_time - last_led_update >= LED_UPDATE_INTERVAL:
+                try:
+                    # Calculate blink states
+                    blink_states = calculate_blink_states()
+                    
+                    # Update LEDs
+                    self.led_service.update_port_leds(
+                        port_led_map, 
+                        self.port_info_cache, 
+                        blink_states
+                    )
+                    last_led_update = current_time
+                except Exception as e:
+                    logger.error(f"Error updating LEDs: {e}")
             
-            # Update LEDs
-            self.led_service.update_port_leds(port_led_map, self.port_info_cache, blink_states)
-            
-            # Small sleep to prevent CPU hogging
-            time.sleep(0.1)
+            # Small sleep to prevent CPU hogging, but not too long to affect LED smoothness
+            time.sleep(0.01)  # 10ms sleep
 
     def is_connected(self) -> bool:
         """Check if switch is connected"""

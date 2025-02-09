@@ -21,18 +21,16 @@ class HotspotService:
         self.running = True
         self.retry_count = 0
         self.max_retries = 3
-        self._commands = self._build_commands()
         self._should_stop = False
 
     def _generate_ssid(self) -> str:
         chars = string.ascii_letters + string.digits
         return ''.join(random.choice(chars) for _ in range(8)) + "-netgear"
 
-    def _build_commands(self) -> List[List[str]]:
-        """Build nmcli commands for hotspot setup"""
+    def _build_network_commands(self) -> List[List[str]]:
+        """Build NetworkManager commands for hotspot setup"""
         return [
             ["sudo", "raspi-config", "nonint", "do_wifi_country", "DE"],
-            # Setup NetworkManager connection first
             ["sudo", "nmcli", "connection", "add",
              "type", "wifi",
              "ifname", "wlan0", 
@@ -51,24 +49,78 @@ class HotspotService:
              "ipv6.method", "ignore"]
         ]
 
+    def setup_dnsmasq(self) -> bool:
+        """Configure and start dnsmasq"""
+        config = """interface=wlan0
+dhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h
+# Redirect all DNS queries to our IP
+address=/#/192.168.0.1
+
+# Captive portal detection URLs
+address=/connectivitycheck.gstatic.com/192.168.0.1
+address=/generate_204/192.168.0.1
+address=/gen_204/192.168.0.1
+address=/play.googleapis.com/192.168.0.1
+address=/www.google.com/192.168.0.1
+address=/detectportal.firefox.com/192.168.0.1
+address=/success.txt.firefox.com/192.168.0.1
+address=/clients3.google.com/192.168.0.1
+address=/www.gstatic.com/192.168.0.1
+address=/www.apple.com/192.168.0.1
+address=/captive.apple.com/192.168.0.1
+address=/www.msftncsi.com/192.168.0.1
+address=/www.msftconnecttest.com/192.168.0.1"""
+
+        try:
+            with open('/etc/dnsmasq.conf', 'w') as f:
+                f.write(config)
+            return True
+        except Exception as e:
+            logger.error(f"Error configuring dnsmasq: {e}")
+            return False
+
+    def setup_iptables(self) -> bool:
+        """Setup iptables rules for captive portal"""
+        commands = [
+            # Flush existing rules
+            "sudo iptables -F",
+            "sudo iptables -t nat -F",
+            
+            # Allow established connections
+            "sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+            
+            # Allow DHCP
+            "sudo iptables -A INPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT",
+            
+            # Allow DNS
+            "sudo iptables -A INPUT -p udp --dport 53 -j ACCEPT",
+            "sudo iptables -A INPUT -p tcp --dport 53 -j ACCEPT",
+            
+            # Redirect all HTTP traffic to local web app
+            "sudo iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j DNAT --to-destination 192.168.0.1:5000",
+            
+            # Enable routing
+            "sudo iptables -A FORWARD -i wlan0 -j ACCEPT",
+            
+            # Masquerade outgoing traffic
+            "sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE"
+        ]
+        
+        for cmd in commands:
+            try:
+                subprocess.run(cmd.split(), check=True)
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Error setting up iptables: {e}")
+                return False
+        return True
+
     def setup_hotspot(self) -> bool:
         try:
-            # Check if a connection is up
-            subprocess.run(
-                ["sudo", "nmcli", "connection", "delete", self.connection_name],
-                capture_output=True,
-                check=False
-            )
+            # Initial cleanup
+            self.cleanup()
             
-            # Stop dnsmasq if running
-            subprocess.run(
-                ["sudo", "systemctl", "stop", "dnsmasq"],
-                check=True,
-                timeout=10
-            )
-
-            # Execute main setup commands
-            for cmd in self._build_commands():
+            # Setup NetworkManager connection
+            for cmd in self._build_network_commands():
                 result = subprocess.run(
                     cmd,
                     check=True,
@@ -79,21 +131,7 @@ class HotspotService:
                 if result.stderr:
                     logger.warning(f"Warning during command {cmd}: {result.stderr}")
 
-            # Configure dnsmasq
-            subprocess.run(
-                ["sudo", "sh", "-c", "echo 'interface=wlan0\\ndhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h\\naddress=/#/192.168.0.1' > /etc/dnsmasq.conf"],
-                check=True,
-                timeout=10
-            )
-
-            # Start dnsmasq
-            subprocess.run(
-                ["sudo", "systemctl", "start", "dnsmasq"],
-                check=True,
-                timeout=10
-            )
-
-            # Finally, bring up the connection
+            # Bring up the connection
             subprocess.run(
                 ["sudo", "nmcli", "connection", "up", self.connection_name],
                 check=True,
@@ -101,6 +139,23 @@ class HotspotService:
                 text=True,
                 timeout=30
             )
+
+            # Wait for interface to be ready
+            time.sleep(2)
+
+            # Configure and start dnsmasq
+            if not self.setup_dnsmasq():
+                return False
+                
+            subprocess.run(
+                ["sudo", "systemctl", "restart", "dnsmasq"],
+                check=True,
+                timeout=10
+            )
+
+            # Setup iptables rules
+            if not self.setup_iptables():
+                return False
 
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             self.retry_count = 0
@@ -122,12 +177,17 @@ class HotspotService:
 
     def cleanup(self) -> bool:
         try:
-            for cmd in [
-                ["sudo", "nmcli", "connection", "down", self.connection_name],
-                ["sudo", "nmcli", "connection", "delete", self.connection_name],
-                ["sudo", "systemctl", "stop", "dnsmasq"]
-            ]:
-                subprocess.run(cmd, check=False, timeout=10)
+            # Stop services
+            subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
+            
+            # Clean up NetworkManager connection
+            subprocess.run(["sudo", "nmcli", "connection", "down", self.connection_name], check=False)
+            subprocess.run(["sudo", "nmcli", "connection", "delete", self.connection_name], check=False)
+            
+            # Flush iptables
+            subprocess.run(["sudo", "iptables", "-F"], check=False)
+            subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=False)
+            
             return True
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
@@ -146,12 +206,8 @@ class HotspotService:
         except Exception:
             return False
 
-    def signal_handler(self, signum, frame):
-        logger.info(f"Received shutdown signal {signum}")
-        self.running = False
-
     def stop(self):
-        """Methode zum sicheren Beenden des Services"""
+        """Safe method to stop the service"""
         self._should_stop = True
 
     def run(self):
@@ -188,8 +244,6 @@ class HotspotService:
             return "activated" in result.stdout.lower()
         except Exception:
             return False
-        
-    
 
 if __name__ == "__main__":
     try:
