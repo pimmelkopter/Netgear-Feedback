@@ -47,6 +47,8 @@ class HotspotService:
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv4.addresses", "192.168.0.1/24"],
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
+            "ipv4.dns", "192.168.0.1"],  # DNS Server setzen
+            ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv6.method", "ignore"],
             ["sudo", "nmcli", "connection", "up", self.connection_name]
         ]

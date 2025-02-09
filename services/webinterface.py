@@ -46,34 +46,39 @@ class WebService:
         @self.login_required
         def index():
             try:
-                # Default VLAN für alle Ports ist 1
-                port_vlans = {i: 1 for i in range(1, self.config.port_count + 1)}
+                switch_api = SwitchAPI()
                 
-                # VLAN Farben und Namen aus der Konfiguration extrahieren
+                # Port-VLAN Mapping vom Switch holen
+                port_vlans = {}
+                try:
+                    port_info = switch_api.get_port_info()
+                    for port in port_info:
+                        port_id = port.get('portId')
+                        if port_id and 1 <= port_id <= self.config.port_count:
+                            port_vlans[port_id] = port.get('portVlanId', 1)
+                except:
+                    # Fallback wenn keine Daten vom Switch
+                    port_vlans = {port: 1 for port in range(1, self.config.port_count + 1)}
+
+                # VLAN-Farben und Namen aus der Konfiguration
                 vlan_colors = {}
                 vlan_names = {}
                 
                 for key, value in self.config._config.items():
-                    if key.startswith('vlan') and key.endswith('_color'):
+                    if key.startswith('vlan') and '_color' in key:
                         try:
-                            # Extrahiere VLAN ID und ignoriere leere oder ungültige Werte
-                            vlan_id_str = key.replace('vlan', '').split('_')[0]
-                            if vlan_id_str and vlan_id_str.isdigit():
-                                vlan_id = int(vlan_id_str)
-                                vlan_colors[vlan_id] = value
-                                
-                                # Finde den zugehörigen Namen
-                                name_key = f"vlan{vlan_id}_name"
-                                vlan_names[vlan_id] = self.config.get(name_key, f"VLAN {vlan_id}")
-                        except (ValueError, IndexError) as e:
-                            logger.warning(f"Skipping invalid VLAN config entry: {key} - {e}")
+                            # Format: vlanX_NAME_color
+                            parts = key.replace('vlan', '').split('_')
+                            vlan_id = int(parts[0])
+                            name = parts[1]
+                            
+                            # Parse RGB values
+                            r, g, b = map(int, value.split(','))
+                            vlan_colors[vlan_id] = f"rgb({r},{g},{b})"
+                            vlan_names[vlan_id] = name
+                        except (ValueError, IndexError):
                             continue
-                
-                # Stelle sicher, dass mindestens VLAN 1 existiert
-                if not vlan_colors:
-                    vlan_colors[1] = "#808080"  # Standard-Grau
-                    vlan_names[1] = "Default VLAN"
-                
+
                 return render_template('index.html', 
                                     show_login=False,
                                     port_vlans=port_vlans,
