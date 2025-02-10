@@ -12,14 +12,20 @@ class LEDService:
     """Thread-safe LED control service"""
     def __init__(self, config):
         self.config = config
-        self._strip = self._initialize_strip()
+        self._strip = None
         self._lock = threading.Lock()
         self._last_colors = []  # Cache last colors to prevent unnecessary updates
+        self._initialize_strip()
 
-    def _initialize_strip(self) -> PixelStrip:
-        """Initialize LED strip with config values"""
+    def _initialize_strip(self) -> None:
+        """Initialize LED strip with config values and proper error handling"""
         try:
-            strip = PixelStrip(
+            # Validate LED count
+            if not isinstance(self.config.led_count, int) or self.config.led_count <= 0:
+                raise ValueError(f"Invalid LED count: {self.config.led_count}")
+
+            # Initialize strip
+            self._strip = PixelStrip(
                 self.config.led_count,
                 self.config.led_pin,
                 800000,  # Standard frequency
@@ -29,22 +35,38 @@ class LEDService:
                 0,      # Channel
                 ws.WS2812_STRIP
             )
-            strip.begin()
+            self._strip.begin()
+            
+            # Initialize last colors array
             self._last_colors = [(0,0,0)] * self.config.led_count
-            return strip
+            
+            # Test strip by setting all LEDs to off
+            self.all_black()
+            
         except Exception as e:
             logger.error(f"Failed to initialize LED strip: {e}")
+            # Set strip to None to indicate initialization failure
+            self._strip = None
             raise
 
-    def _set_pixel_color(self, index: int, color: Tuple[int, int, int]):
-        """Set LED color with change detection"""
-        if 0 <= index < self.config.led_count:
-            if self._last_colors[index] != color:
-                self._strip.setPixelColor(index, Color(*color))
-                self._last_colors[index] = color
+    def _set_pixel_color(self, index: int, color: tuple) -> None:
+        """Set LED color with bounds checking"""
+        if self._strip is None:
+            return
 
-    def all_black(self):
-        """Turn all LEDs off"""
+        try:
+            if 0 <= index < self.config.led_count:
+                if self._last_colors[index] != color:
+                    self._strip.setPixelColor(index, Color(*color))
+                    self._last_colors[index] = color
+        except Exception as e:
+            logger.error(f"Error setting pixel color at index {index}: {e}")
+
+    def all_black(self) -> None:
+        """Turn all LEDs off safely"""
+        if self._strip is None:
+            return
+
         with self._lock:
             try:
                 black = (0,0,0)
@@ -54,20 +76,31 @@ class LEDService:
             except Exception as e:
                 logger.error(f"Error turning LEDs off: {e}")
 
-    def show_progress(self, progress: int):
-        """Show progress bar in white LEDs with bounds checking"""
+    def show_progress(self, progress: int) -> None:
+        """Show progress bar in white LEDs with proper error handling"""
+        if self._strip is None:
+            logger.error("LED strip not initialized")
+            return
+
         with self._lock:
             try:
-                # Ensure progress is within valid bounds
+                # Ensure progress is within bounds
                 progress = max(0, min(progress, self.config.led_count))
                 
-                white = (255, 255, 255)
-                black = (0, 0, 0)
+                # Set colors
+                white = (255,255,255)
+                black = (0,0,0)
                 
+                # Update LEDs
                 for i in range(self.config.led_count):
-                    self._set_pixel_color(i, white if i < progress else black)
+                    color = white if i < progress else black
+                    if i < len(self._last_colors):  # Zusätzliche Überprüfung
+                        self._set_pixel_color(i, color)
                 
-                self._strip.show()
+                # Show only if we have a valid strip
+                if self._strip:
+                    self._strip.show()
+                    
             except Exception as e:
                 logger.error(f"Error showing progress: {e}")
                 # Log additional debug information
@@ -184,44 +217,47 @@ class LEDService:
                     speed_color if blink_on else (0,0,0)
                 )
 
-    def _update_single_led_mode(
-        self, leds: List[int],
-        vlan_color: Tuple[int, int, int],
-        speed: int,
-        speed_color: Tuple[int, int, int],
-        poe: bool,
-        blink_on: bool,
-        phase: int
-    ):
-        """Update port in single-LED mode"""
-        if not leds:
+        def _update_single_led_mode(
+            self, leds: List[int],
+            vlan_color: Tuple[int, int, int],
+            speed: int,
+            speed_color: Tuple[int, int, int],
+            poe: bool,
+            blink_on: bool,
+            phase: int
+        ):
+            """Update port in single-LED mode"""
+            if not leds:
+                return
+
+            first_led = leds[0]
+            if speed == 0:
+                self._set_pixel_color(first_led, vlan_color)
+            elif poe:
+                cycle_position = phase % 3
+                if cycle_position == 0:
+                    self._set_pixel_color(first_led, vlan_color)
+                elif cycle_position == 1:
+                    self._set_pixel_color(first_led, (0,0,255))  # POE indicator
+                else:
+                    self._set_pixel_color(
+                        first_led,
+                        speed_color if blink_on else (0,0,0)
+                    )
+            else:
+                if phase % 2 == 0:
+                    self._set_pixel_color(first_led, vlan_color)
+                else:
+                    self._set_pixel_color(
+                        first_led,
+                        speed_color if blink_on else (0,0,0)
+                    )
+                
+    def cleanup(self) -> None:
+        """Safe cleanup sequence"""
+        if self._strip is None:
             return
 
-        first_led = leds[0]
-        if speed == 0:
-            self._set_pixel_color(first_led, vlan_color)
-        elif poe:
-            cycle_position = phase % 3
-            if cycle_position == 0:
-                self._set_pixel_color(first_led, vlan_color)
-            elif cycle_position == 1:
-                self._set_pixel_color(first_led, (0,0,255))  # POE indicator
-            else:
-                self._set_pixel_color(
-                    first_led,
-                    speed_color if blink_on else (0,0,0)
-                )
-        else:
-            if phase % 2 == 0:
-                self._set_pixel_color(first_led, vlan_color)
-            else:
-                self._set_pixel_color(
-                    first_led,
-                    speed_color if blink_on else (0,0,0)
-                )
-
-    def cleanup(self):
-        """Clean shutdown sequence"""
         with self._lock:
             try:
                 # All red
@@ -240,9 +276,6 @@ class LEDService:
                     time.sleep(0.2)
 
                 # All off
-                black = (0,0,0)
-                for i in range(self.config.led_count):
-                    self._set_pixel_color(i, black)
-                self._strip.show()
+                self.all_black()
             except Exception as e:
                 logger.error(f"Error during LED cleanup: {e}")
