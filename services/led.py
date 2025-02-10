@@ -2,7 +2,6 @@
 import time
 from typing import List, Tuple, Dict, Optional
 from rpi_ws281x import PixelStrip, Color, ws
-import neopixel
 import board
 import logging
 import threading
