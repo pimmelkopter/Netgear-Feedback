@@ -96,6 +96,9 @@ main() {
     local services=("switch_monitor") #"hotspot" "web_interface"
     manage_services restart "${services[@]}"
 
+    sudo chmod +x setup/dev_tools/update.sh
+    sudo chmod +x setup/dev_tools/git-reset.sh
+
     log_success "Update und Dienste-Konfiguration abgeschlossen!"
     sudo journalctl -b -u switch_monitor.service --no-pager --since -10m
 }
