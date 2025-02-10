@@ -55,16 +55,23 @@ class LEDService:
                 logger.error(f"Error turning LEDs off: {e}")
 
     def show_progress(self, progress: int):
-        """Show progress bar in white LEDs"""
+        """Show progress bar in white LEDs with bounds checking"""
         with self._lock:
             try:
-                white = (255,255,255)
-                black = (0,0,0)
+                # Ensure progress is within valid bounds
+                progress = max(0, min(progress, self.config.led_count))
+                
+                white = (255, 255, 255)
+                black = (0, 0, 0)
+                
                 for i in range(self.config.led_count):
                     self._set_pixel_color(i, white if i < progress else black)
+                
                 self._strip.show()
             except Exception as e:
                 logger.error(f"Error showing progress: {e}")
+                # Log additional debug information
+                logger.debug(f"Progress: {progress}, LED count: {self.config.led_count}")
 
     def show_status(self, success: bool, duration: float = 2.0):
         """Show success/failure status"""
