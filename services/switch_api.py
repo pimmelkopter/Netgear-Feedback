@@ -200,26 +200,51 @@ class SwitchAPI:
             return self.config.port_count
 
     @RetryWithBackoff()
-    def scan_vlans(self) -> Dict[str, str]:
-        """Scan switch for VLAN configurations"""
+    def scan_vlans(self):
+        """Scan and update VLAN configurations with timeout"""
+        if not self.config.scan_vlans:
+            logger.info("VLAN scanning disabled in config")
+            return
+
         try:
+            logger.info("Starting VLAN scan...")
+            
+            # Set a timeout for the VLAN scan
             response = self.session.get(
                 f"{self.base_url}/device_config?file=running-config",
-                timeout=5
+                timeout=15  # 15 seconds timeout
             )
             data = self._handle_response(response)
 
-            lines = data.get("Device-Config", {}).get("Running-Config", [])
-            vlan_pattern = re.compile(r'^\s*vlan\s+name\s+(\d+)\s+"([^"]+)"')
+            if not data or "Device-Config" not in data:
+                logger.warning("No VLAN configuration found")
+                return
 
+            lines = data.get("Device-Config", {}).get("Running-Config", [])
+            if not lines:
+                logger.warning("Empty VLAN configuration")
+                return
+
+            vlan_pattern = re.compile(r'^\s*vlan\s+name\s+(\d+)\s+"([^"]+)"')
             vlan_info = {}
+            
             for line in lines:
                 match = vlan_pattern.match(line.strip())
                 if match:
                     vlan_id, vlan_name = match.groups()
                     vlan_info[vlan_id] = vlan_name
+                    logger.info(f"Found VLAN {vlan_id}: {vlan_name}")
+
+            if vlan_info:
+                logger.info(f"Successfully scanned {len(vlan_info)} VLANs")
+            else:
+                logger.warning("No VLANs found in configuration")
 
             return vlan_info
+            
+        except requests.exceptions.Timeout:
+            logger.error("VLAN scan timed out")
+            return {}
         except Exception as e:
             logger.error(f"VLAN scan failed: {e}")
             return {}

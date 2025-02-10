@@ -14,40 +14,93 @@ class LEDService:
         self.config = config
         self._strip = None
         self._lock = threading.Lock()
-        self._last_colors = []  # Cache last colors to prevent unnecessary updates
-        self._initialize_strip()
+        self._last_colors = []
+        logger.info("Initializing LED Service...")
+        try:
+            self._initialize_strip()
+            logger.info("LED Service initialized successfully")
+        except Exception as e:
+            logger.error(f"LED Service initialization failed: {e}")
+            raise
 
     def _initialize_strip(self) -> None:
         """Initialize LED strip with config values and proper error handling"""
         try:
+            logger.info(f"Initializing LED strip with {self.config.led_count} LEDs on pin {self.config.led_pin}")
+            
             # Validate LED count
             if not isinstance(self.config.led_count, int) or self.config.led_count <= 0:
                 raise ValueError(f"Invalid LED count: {self.config.led_count}")
 
             # Initialize strip
-            self._strip = PixelStrip(
-                self.config.led_count,
-                self.config.led_pin,
-                800000,  # Standard frequency
-                10,     # DMA channel
-                False,  # Invert signal
-                self.config.led_brightness,
-                0,      # Channel
-                ws.WS2812_STRIP
-            )
-            self._strip.begin()
+            try:
+                import board
+                import neopixel
+                self._strip = neopixel.NeoPixel(
+                    getattr(board, f"D{self.config.led_pin}"),
+                    self.config.led_count,
+                    brightness=self.config.led_brightness / 255.0,
+                    auto_write=False
+                )
+                logger.info("Using NeoPixel library for LED control")
+            except ImportError:
+                # Fallback to rpi_ws281x
+                self._strip = PixelStrip(
+                    self.config.led_count,
+                    self.config.led_pin,
+                    800000,
+                    10,
+                    False,
+                    self.config.led_brightness,
+                    0,
+                    ws.WS2812_STRIP
+                )
+                self._strip.begin()
+                logger.info("Using rpi_ws281x library for LED control")
             
             # Initialize last colors array
             self._last_colors = [(0,0,0)] * self.config.led_count
             
             # Test strip by setting all LEDs to off
-            self.all_black()
+            logger.info("Testing LED strip...")
+            self.test_pattern()
             
         except Exception as e:
             logger.error(f"Failed to initialize LED strip: {e}")
             # Set strip to None to indicate initialization failure
             self._strip = None
             raise
+
+    def test_pattern(self):
+        """Run a simple test pattern to verify LED functionality"""
+        if not self._strip:
+            return
+        with self._lock:
+            try:
+                # All red
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, (255,0,0))
+                self._strip.show()
+                time.sleep(0.5)
+                
+                # All green
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, (0,255,0))
+                self._strip.show()
+                time.sleep(0.5)
+                
+                # All blue
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, (0,0,255))
+                self._strip.show()
+                time.sleep(0.5)
+                
+                # All off
+                self.all_black()
+                
+                logger.info("LED test pattern completed successfully")
+            except Exception as e:
+                logger.error(f"Error during LED test pattern: {e}")
 
     def _set_pixel_color(self, index: int, color: tuple) -> None:
         """Set LED color with bounds checking"""
