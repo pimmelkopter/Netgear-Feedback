@@ -1,49 +1,88 @@
-Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
+Hier ist eine aktualisierte und leserlich formatierte `README.md`, die deinen Inhalt beibehält, aber besser strukturiert ist:
 
-**Requirements:**
-- Raspi with pios/ pios lite, WS2812B
+---
 
-- **WS2812b DATA** -> **GPIO 18** (you can change this under config.json)
-- **+5V** -> **5V** 
-- **GND** -> **GND** 
+# Netgear AV-Line VLAN-ID LED Feedback
 
-**How to use**
-- sudo apt-get update -y && sudo apt-get upgrade -y
-- sudo apt-get install git -y
-- git clone https://github.com/pimmelkopter/Netgear-Feedback.git
-- cd Netgear-Feedback
-- customize your settings with: nano config/config.json
-- create secrets.json: mv config/secrets_initial.json config/secrets.json
-- enter your credentials: nano config/secrets.json
-- chmod +x setup/setup.sh
-- ./setup/setup.sh
-- if you need to change any settings in config.json just run ./setup/dev_tools/update.sh afterwards
+Dieses Projekt zeigt den VLAN-Status von **Netgear AV-Line Switches** mit **WS2812B LEDs** an.
 
+## 📌 Anforderungen
 
-    utils.py port mapping generator:
-    Generates a dict {port_id: [ledIndices]} based on the chosen mode:
-      'linear': just 1..port_count in ascending order
-      'odd_even-linear': odd asc, then even asc
-      'odd_even-even_reversed': odd asc, then even desc
-      'odd_even-odd_reversed': odd desc, then even asc
-      'odd_even-reversed': odd desc, then even desc
-      (fallback => 'linear')
+- **Raspberry Pi** mit **Raspberry Pi OS (Lite empfohlen)**
+- **WS2812B LED-Streifen**
+- Verkabelung:
+  - **DATA** -> **GPIO 18** *(konfigurierbar in `config.json`)*
+  - **+5V** -> **5V**
+  - **GND** -> **GND**
 
-    Gaps:
-      gap_start:     extra LED offset before the first port
-      gap_end:       extra LED offset after the last port
-      gap_between_rows: used only when we have separate "odd" and "even" blocks
-      block_size, gap_after_block:
-                      after 'block_size' ports, skip 'gap_after_block' LEDs
-                      
-    Returns a dict: {port_id: [ledIndex,...], ...}
-    """
+## 🚀 Installation & Setup
 
-    E.g. 'odd_even-linear' => odd asc, even asc
-        #    'odd_even-even_reversed' => odd asc, even desc, etc.
+```bash
+sudo apt-get update -y && sudo apt-get upgrade -y
+sudo apt-get install git -y
+git clone https://github.com/pimmelkopter/Netgear-Feedback.git
+cd Netgear-Feedback
+```
 
-    VLAN Color map:
-      """
-      Expects e.g. '100:255,0,0;200:0,255,0'
-      Returns a dict {100: (255,0,0), 200: (0,255,0)}
-      """
+### 🔧 Konfiguration anpassen
+
+```bash
+nano config/config.json  # Einstellungen anpassen
+mv config/secrets_initial.json config/secrets.json
+nano config/secrets.json  # Zugangsdaten eintragen
+```
+
+### 🛠 Installation starten
+
+```bash
+chmod +x setup/setup.sh
+./setup/setup.sh
+```
+
+Falls `config.json` geändert wurde, führe einfach das Update-Skript aus:
+
+```bash
+./setup/dev_tools/update.sh
+```
+
+---
+
+## ⚙️ Port-Mapping-Modi (utils.py)
+
+Der **Port-Mapping-Generator** (`utils.py`) erzeugt eine Zuordnung von **Switch-Ports zu LED-Indizes**.
+
+**Verfügbare Modi:**
+- `linear` → 1..port_count in aufsteigender Reihenfolge
+- `odd_even-linear` → erst ungerade, dann gerade Ports (beide aufsteigend)
+- `odd_even-even_reversed` → ungerade aufsteigend, gerade absteigend
+- `odd_even-odd_reversed` → ungerade absteigend, gerade aufsteigend
+- `odd_even-reversed` → ungerade & gerade absteigend  
+*(Fallback → `linear`)*
+
+### ➕ LED-Lücken konfigurieren
+- **`gap_start`** → Offset vor dem ersten Port
+- **`gap_end`** → Offset nach dem letzten Port
+- **`gap_between_rows`** → Nur für getrennte ungerade/gerade Blöcke
+- **`block_size, gap_after_block`** → Nach `block_size` Ports wird `gap_after_block` LEDs übersprungen
+
+⏩ **Beispiel**:  
+`odd_even-linear` → Ungerade aufsteigend, danach gerade aufsteigend  
+`odd_even-even_reversed` → Ungerade aufsteigend, gerade absteigend  
+
+---
+
+## 🎨 VLAN-Farbzuordnung
+
+- Definiert in `config.json` als **Mapping von VLAN-IDs zu RGB-Farben**.
+- Format:  
+  ```json
+  "vlan_color_map": "100:255,0,0;200:0,255,0"
+  ```
+- Rückgabe:  
+  ```python
+  {100: (255,0,0), 200: (0,255,0)}
+  ```
+
+---
+
+🔥 **Viel Spaß mit Netgear VLAN-Feedback!** 🚀
