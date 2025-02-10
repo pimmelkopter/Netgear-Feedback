@@ -23,7 +23,7 @@ class HotspotService:
         self.max_retries = 3
         self._should_stop = False
         self.active = False
-        
+
     def _generate_ssid(self) -> str:
         """Generate a unique SSID for the hotspot"""
         base_name = self.config.get('hotspot_ssid_prefix', 'NETGEAR-CONFIG')
@@ -34,6 +34,17 @@ class HotspotService:
     def check_dependencies(self) -> bool:
         """Check if required packages are installed"""
         try:
+            # Check if NetworkManager is running first
+            nm_status = subprocess.run(
+                ["systemctl", "is-active", "NetworkManager"],
+                capture_output=True,
+                text=True
+            )
+            if "active" not in nm_status.stdout:
+                logger.error("NetworkManager is not running")
+                subprocess.run(["sudo", "systemctl", "start", "NetworkManager"])
+                time.sleep(5)  # Wait for NetworkManager to start
+
             subprocess.run(["which", "iptables"], check=True, capture_output=True)
             subprocess.run(["which", "dnsmasq"], check=True, capture_output=True)
             return True
@@ -78,8 +89,23 @@ address=/www.msftconnecttest.com/192.168.0.1"""
             with open('/etc/dnsmasq.conf', 'w') as f:
                 f.write(config)
             
-            # Ensure dnsmasq is enabled
+            # Stop dnsmasq before starting to ensure clean state
+            subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
+            time.sleep(1)
+            
+            # Enable and start dnsmasq
             subprocess.run(["sudo", "systemctl", "enable", "dnsmasq"], check=True)
+            subprocess.run(["sudo", "systemctl", "start", "dnsmasq"], check=True)
+            
+            # Verify it's running
+            status = subprocess.run(
+                ["systemctl", "is-active", "dnsmasq"],
+                capture_output=True,
+                text=True
+            )
+            if "active" not in status.stdout:
+                raise Exception("dnsmasq failed to start")
+                
             return True
         except Exception as e:
             logger.error(f"Error configuring dnsmasq: {e}")
@@ -88,28 +114,25 @@ address=/www.msftconnecttest.com/192.168.0.1"""
     def _build_network_commands(self) -> List[List[str]]:
         """Build NetworkManager commands for hotspot setup"""
         return [
-            ["sudo", "nmcli", "connection", "delete", self.connection_name],
-            [
-                "sudo", "nmcli", "connection", "add",
-                "type", "wifi",
-                "ifname", "wlan0",
-                "con-name", self.connection_name,
-                "autoconnect", "yes",
-                "save", "yes",
-                "mode", "ap",
-                "ssid", self.ssid
-            ],
-            [
-                "sudo", "nmcli", "connection", "modify", self.connection_name,
-                "802-11-wireless.band", "bg",
-                "ipv4.method", "manual",
-                "ipv4.addresses", "192.168.0.1/24"
-            ]
+            ["sudo", "nmcli", "radio", "wifi", "on"],  # Ensure WiFi is on
+            ["sudo", "nmcli", "device", "wifi", "hotspot", 
+             "con-name", self.connection_name,
+             "ssid", self.ssid,
+             "band", "bg",
+             "channel", "1"],
+            ["sudo", "nmcli", "connection", "modify", self.connection_name,
+             "ipv4.method", "manual",
+             "ipv4.addresses", "192.168.0.1/24"]
         ]
 
     def setup_iptables(self) -> bool:
         """Setup iptables rules for NAT"""
         try:
+            # Flush existing rules
+            subprocess.run(["sudo", "iptables", "-F"], check=True)
+            subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=True)
+            
+            # Set up NAT
             rules = [
                 ["sudo", "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", "eth0", "-j", "MASQUERADE"],
                 ["sudo", "iptables", "-A", "FORWARD", "-i", "eth0", "-o", "wlan0", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"],
@@ -124,13 +147,15 @@ address=/www.msftconnecttest.com/192.168.0.1"""
             return False
 
     def setup_hotspot(self) -> bool:
+        """Setup and start the hotspot"""
         try:
             # Check dependencies first
             if not self.check_dependencies():
                 return False
 
-            # Initial cleanup
+            # Initial cleanup to ensure clean state
             self.cleanup()
+            time.sleep(2)  # Give system time to clean up
             
             # Setup NetworkManager connection
             for cmd in self._build_network_commands():
@@ -144,107 +169,61 @@ address=/www.msftconnecttest.com/192.168.0.1"""
                 if result.stderr:
                     logger.warning(f"Warning during command {cmd}: {result.stderr}")
 
-            # Bring up the connection
-            subprocess.run(
-                ["sudo", "nmcli", "connection", "up", self.connection_name],
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-
             # Wait for interface to be ready
             time.sleep(2)
 
-            # Configure dnsmasq first
+            # Setup dnsmasq
             if not self.setup_dnsmasq():
                 return False
 
-            # Stop dnsmasq if running to ensure clean restart
-            subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=True)
-            time.sleep(1)
-                
-            # Start dnsmasq with error checking
-            try:
-                subprocess.run(
-                    ["sudo", "systemctl", "start", "dnsmasq"],
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
-                
-                # Verify dnsmasq is running
-                result = subprocess.run(
-                    ["systemctl", "is-active", "dnsmasq"],
-                    capture_output=True,
-                    text=True
-                )
-                if "active" not in result.stdout:
-                    raise Exception("dnsmasq failed to start")
-                    
-            except Exception as e:
-                logger.error(f"Failed to start dnsmasq: {e}")
-                # Get dnsmasq status for debugging
-                try:
-                    status = subprocess.run(
-                        ["systemctl", "status", "dnsmasq"],
-                        capture_output=True,
-                        text=True
-                    )
-                    logger.error(f"dnsmasq status: {status.stdout}")
-                except:
-                    pass
-                return False
-
-            # Setup iptables only if available
+            # Setup iptables
             if os.path.exists("/sbin/iptables") or os.path.exists("/usr/sbin/iptables"):
                 if not self.setup_iptables():
                     logger.warning("Failed to setup iptables rules")
-                    # Continue anyway as this is not critical
+
+            # Verify hotspot is active
+            if not self.get_status():
+                raise Exception("Hotspot failed to activate")
 
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             self.retry_count = 0
             self.active = True
             return True
 
-        except subprocess.TimeoutExpired:
-            logger.error("Command timed out")
-            return False
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error setting up hotspot: {e}")
-            if e.stderr:
-                logger.error(f"Command stderr: {e.stderr}")
-            return False
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.error(f"Error setting up hotspot: {e}")
+            if hasattr(e, 'stderr'):
+                logger.error(f"Command stderr: {e.stderr}")
             return False
 
     def get_status(self) -> bool:
         """Check if hotspot is running"""
         try:
             result = subprocess.run(
-                ["nmcli", "connection", "show", "--active"],
+                ["nmcli", "-t", "-f", "DEVICE,STATE", "device"],
                 capture_output=True,
                 text=True
             )
-            return self.connection_name in result.stdout
+            return "wlan0:activated" in result.stdout.replace(" ", "")
         except Exception:
             return False
 
     def cleanup(self) -> bool:
+        """Clean up services and configurations"""
         try:
-            # Stop services
+            # Stop dnsmasq
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
             
             # Clean up NetworkManager connection
             subprocess.run(["sudo", "nmcli", "connection", "down", self.connection_name], check=False)
             subprocess.run(["sudo", "nmcli", "connection", "delete", self.connection_name], check=False)
             
-            # Flush iptables if available
+            # Clean up iptables
             if os.path.exists("/sbin/iptables") or os.path.exists("/usr/sbin/iptables"):
                 subprocess.run(["sudo", "iptables", "-F"], check=False)
                 subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=False)
             
+            self.active = False
             return True
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
@@ -252,23 +231,35 @@ address=/www.msftconnecttest.com/192.168.0.1"""
 
     def run(self):
         """Main service loop"""
-        while not self._should_stop:
-            if not self.setup_hotspot():
-                self.retry_count += 1
-                if self.retry_count >= self.max_retries:
-                    logger.error("Max retries reached, exiting...")
-                    break
-                logger.error(f"Failed to start hotspot (attempt {self.retry_count}/{self.max_retries}), retrying in 30 seconds...")
-                time.sleep(30)
-                continue
-
-            # Main monitoring loop
+        try:
             while not self._should_stop:
-                if not self.get_status():
-                    logger.warning("Hotspot connection lost, restarting...")
-                    break
-                time.sleep(10)
+                if not self.setup_hotspot():
+                    self.retry_count += 1
+                    if self.retry_count >= self.max_retries:
+                        logger.error("Max retries reached, exiting...")
+                        break
+                    logger.error(f"Failed to start hotspot (attempt {self.retry_count}/{self.max_retries}), retrying in 30 seconds...")
+                    time.sleep(30)
+                    continue
 
-            time.sleep(5)
+                # Main monitoring loop
+                while not self._should_stop:
+                    if not self.get_status():
+                        logger.warning("Hotspot connection lost, restarting...")
+                        break
+                    time.sleep(10)
 
-        self.cleanup()
+                time.sleep(5)
+
+        except Exception as e:
+            logger.error(f"Error in main loop: {e}")
+        finally:
+            self.cleanup()
+
+    def is_active(self) -> bool:
+        """Check if hotspot is currently active"""
+        return self.active
+
+    def get_ssid(self) -> Optional[str]:
+        """Get current SSID if active"""
+        return self.ssid if self.active else None

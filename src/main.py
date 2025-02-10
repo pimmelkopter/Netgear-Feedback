@@ -162,6 +162,7 @@ class SwitchMonitor:
         """Main monitoring loop"""
         port_led_map = parse_port_led_mapping(self.config)
         last_update = 0
+        last_led_update = 0  # Initialize last_led_update
         LED_UPDATE_INTERVAL = 0.1
         
         while self.running:
