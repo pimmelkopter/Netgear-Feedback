@@ -92,9 +92,7 @@ main() {
         fi
     fi
 
-    # Dienste verwalten
-    local services=("switch_monitor") #"hotspot" "web_interface"
-    manage_services restart "${services[@]}"
+    sudo systemctl restart switch_monitor.service 
 
     sudo chmod +x setup/dev_tools/update.sh
     sudo chmod +x setup/dev_tools/git-reset.sh
