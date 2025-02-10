@@ -34,119 +34,33 @@ class HotspotService:
     def check_dependencies(self) -> bool:
         """Check and setup required dependencies"""
         try:
-            # Ensure NetworkManager is installed
-            if not os.path.exists("/usr/sbin/NetworkManager"):
-                logger.error("NetworkManager is not installed")
-                return False
-
-            # Start NetworkManager if not running
+            # Check if NetworkManager is running first
             nm_status = subprocess.run(
                 ["systemctl", "is-active", "NetworkManager"],
                 capture_output=True,
                 text=True
             )
             if "active" not in nm_status.stdout:
-                logger.warning("NetworkManager is not running, attempting to start...")
+                logger.error("NetworkManager is not running")
                 subprocess.run(["sudo", "systemctl", "start", "NetworkManager"])
-                time.sleep(10)  # Give NetworkManager time to start
-
-            # Verify NetworkManager is running
-            nm_status = subprocess.run(
-                ["systemctl", "is-active", "NetworkManager"],
-                capture_output=True,
-                text=True
-            )
-            if "active" not in nm_status.stdout:
-                logger.error("Failed to start NetworkManager")
-                return False
+                time.sleep(5)  # Wait for NetworkManager to start
 
             # Check for required binaries
             subprocess.run(["which", "iptables"], check=True, capture_output=True)
             subprocess.run(["which", "dnsmasq"], check=True, capture_output=True)
-
-            # Verify wlan0 interface
-            wlan_status = subprocess.run(
-                ["nmcli", "device", "status"], 
-                capture_output=True, 
-                text=True
-            )
-            if "wlan0" not in wlan_status.stdout:
+            
+            # Ensure wlan0 exists
+            result = subprocess.run(["ip", "link", "show", "wlan0"], 
+                                  capture_output=True, 
+                                  text=True)
+            if result.returncode != 0:
                 logger.error("wlan0 interface not found")
                 return False
 
             return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Dependency check failed: {e}")
-            return False
-
-    def _setup_network_interface(self) -> bool:
-        """Prepare network interface for hotspot"""
-        try:
-            # Unblock WiFi
-            subprocess.run(["sudo", "rfkill", "unblock", "wifi"], check=True)
-            time.sleep(1)
-
-            # Enable WiFi
-            subprocess.run(["sudo", "nmcli", "radio", "wifi", "on"], check=True)
-            time.sleep(1)
-
-            # Ensure interface is up
-            subprocess.run(["sudo", "ip", "link", "set", "wlan0", "up"], check=True)
-            time.sleep(2)
-
-            # Verify interface state
-            result = subprocess.run(
-                ["ip", "link", "show", "wlan0"],
-                capture_output=True,
-                text=True
-            )
-            if "state UP" not in result.stdout:
-                logger.error("Failed to bring up wlan0 interface")
-                return False
-
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Network interface setup failed: {e}")
-            return False
-
-    def _create_hotspot(self) -> bool:
-        """Create WiFi hotspot"""
-        try:
-            # Create hotspot connection
-            subprocess.run([
-                "sudo", "nmcli", "device", "wifi", "hotspot",
-                "con-name", self.connection_name,
-                "ssid", self.ssid,
-                "password", "password123",  # Add a default password
-                "band", "bg",
-                "channel", "1"
-            ], check=True)
-            time.sleep(2)
-
-            # Modify connection settings
-            subprocess.run([
-                "sudo", "nmcli", "connection", "modify", self.connection_name,
-                "ipv4.method", "manual",
-                "ipv4.addresses", "192.168.0.1/24",
-                "ipv4.gateway", "192.168.0.1",
-                "ipv4.dns", "8.8.8.8,8.8.4.4",
-                "ipv4.never-default", "true"
-            ], check=True)
-            time.sleep(2)
-
-            # Verify connection exists
-            result = subprocess.run(
-                ["nmcli", "connection", "show", self.connection_name],
-                capture_output=True,
-                text=True
-            )
-            if self.connection_name not in result.stdout:
-                logger.error("Failed to create hotspot connection")
-                return False
-
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Hotspot creation failed: {e}")
+        except subprocess.CalledProcessError:
+            logger.error("Missing required packages. Please install iptables and dnsmasq:")
+            logger.error("sudo apt-get update && sudo apt-get install -y iptables dnsmasq")
             return False
 
     def setup_dnsmasq(self) -> bool:
@@ -163,21 +77,21 @@ except-interface=eth0
 interface=wlan0
 bind-dynamic
 listen-address=192.168.0.1
-no-hosts
 no-resolv
 server=8.8.8.8
 server=8.8.4.4
 
 # DHCP configuration
 dhcp-range=192.168.0.50,192.168.0.150,255.255.255.0,12h
-dhcp-option=3,192.168.0.1
-dhcp-option=6,192.168.0.1
+dhcp-authoritative
+dhcp-option=option:router,192.168.0.1
+dhcp-option=option:dns-server,192.168.0.1
 
 # Logging
 log-queries
 log-dhcp
 log-facility=/var/log/dnsmasq.log
-
+log-async=25
 
 # Captive portal redirects
 address=/detectportal.firefox.com/192.168.0.1
@@ -197,34 +111,48 @@ address=/www.msftconnecttest.com/192.168.0.1"""
 
             # Write main config
             with open('/etc/dnsmasq.conf', 'w') as f:
+                f.write("conf-dir=/etc/dnsmasq.d/,*.conf\n")
+
+            # Write our specific config
+            with open('/etc/dnsmasq.d/hotspot.conf', 'w') as f:
                 f.write(config)
 
-            # Set permissions and create log file
+            # Set permissions
             subprocess.run(["sudo", "chmod", "644", "/etc/dnsmasq.conf"])
+            subprocess.run(["sudo", "chmod", "644", "/etc/dnsmasq.d/hotspot.conf"])
+
+            # Create log file with proper permissions
             subprocess.run(["sudo", "touch", "/var/log/dnsmasq.log"])
             subprocess.run(["sudo", "chmod", "644", "/var/log/dnsmasq.log"])
 
-            # Start dnsmasq
+            # Enable and start dnsmasq
             subprocess.run(["sudo", "systemctl", "enable", "dnsmasq"], check=True)
+            
+            # Start dnsmasq with error logging
             result = subprocess.run(
                 ["sudo", "systemctl", "start", "dnsmasq"],
                 capture_output=True,
                 text=True
             )
-
             if result.returncode != 0:
                 logger.error(f"dnsmasq start failed: {result.stderr}")
+                # Get detailed status
+                status = subprocess.run(
+                    ["sudo", "systemctl", "status", "dnsmasq"],
+                    capture_output=True,
+                    text=True
+                )
+                logger.error(f"dnsmasq status: {status.stdout}")
                 return False
 
             # Verify it's running
-            time.sleep(2)
             status = subprocess.run(
                 ["systemctl", "is-active", "dnsmasq"],
                 capture_output=True,
                 text=True
             )
             if "active" not in status.stdout:
-                logger.error("dnsmasq is not running")
+                logger.error("dnsmasq failed to start")
                 return False
 
             return True
@@ -254,14 +182,14 @@ address=/www.msftconnecttest.com/192.168.0.1"""
     def setup_iptables(self) -> bool:
         """Setup iptables rules for NAT"""
         try:
+            # Flush existing rules
+            subprocess.run(["sudo", "iptables", "-F"], check=True)
+            subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=True)
+            
             # Enable IP forwarding
             with open('/proc/sys/net/ipv4/ip_forward', 'w') as f:
                 f.write('1\n')
-
-            # Clear existing rules
-            subprocess.run(["sudo", "iptables", "-F"], check=True)
-            subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=True)
-
+            
             # Set up NAT
             rules = [
                 ["sudo", "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", "eth0", "-j", "MASQUERADE"],
