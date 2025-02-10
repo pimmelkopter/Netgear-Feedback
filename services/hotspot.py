@@ -45,8 +45,18 @@ class HotspotService:
                 subprocess.run(["sudo", "systemctl", "start", "NetworkManager"])
                 time.sleep(5)  # Wait for NetworkManager to start
 
+            # Check for required binaries
             subprocess.run(["which", "iptables"], check=True, capture_output=True)
             subprocess.run(["which", "dnsmasq"], check=True, capture_output=True)
+            
+            # Ensure wlan0 exists
+            result = subprocess.run(["ip", "link", "show", "wlan0"], 
+                                  capture_output=True, 
+                                  text=True)
+            if result.returncode != 0:
+                logger.error("wlan0 interface not found")
+                return False
+
             return True
         except subprocess.CalledProcessError:
             logger.error("Missing required packages. Please install iptables and dnsmasq:")
@@ -55,22 +65,34 @@ class HotspotService:
 
     def setup_dnsmasq(self) -> bool:
         """Configure and start dnsmasq"""
-        config = """# Basic setup
+        try:
+            # Stop dnsmasq if running
+            subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
+            time.sleep(1)
+
+            # Create dnsmasq config directory if it doesn't exist
+            os.makedirs("/etc/dnsmasq.d", exist_ok=True)
+
+            # Basic dnsmasq configuration
+            config = """# Configuration for hotspot
 interface=wlan0
+no-dhcp-interface=eth0
 bind-interfaces
-domain-needed
-bogus-priv
-no-poll
+server=8.8.8.8
+server=8.8.4.4
 
 # DHCP configuration
-dhcp-range=192.168.0.10,192.168.0.50,255.255.255.0,24h
-dhcp-option=option:router,192.168.0.1
-dhcp-option=option:dns-server,192.168.0.1
+dhcp-range=192.168.0.10,192.168.0.50,12h
+dhcp-option=3,192.168.0.1
+dhcp-option=6,192.168.0.1
 
-# Redirect all DNS queries to our IP
-address=/#/192.168.0.1
+# Logging
+log-queries
+log-dhcp
+log-facility=/var/log/dnsmasq.log
 
-# Captive portal detection URLs
+# Captive portal redirects
+address=/detectportal.firefox.com/192.168.0.1
 address=/connectivitycheck.gstatic.com/192.168.0.1
 address=/generate_204/192.168.0.1
 address=/gen_204/192.168.0.1
@@ -85,18 +107,42 @@ address=/captive.apple.com/192.168.0.1
 address=/www.msftncsi.com/192.168.0.1
 address=/www.msftconnecttest.com/192.168.0.1"""
 
-        try:
+            # Write main config
             with open('/etc/dnsmasq.conf', 'w') as f:
+                f.write("conf-dir=/etc/dnsmasq.d/,*.conf\n")
+
+            # Write our specific config
+            with open('/etc/dnsmasq.d/hotspot.conf', 'w') as f:
                 f.write(config)
-            
-            # Stop dnsmasq before starting to ensure clean state
-            subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
-            time.sleep(1)
-            
+
+            # Set permissions
+            subprocess.run(["sudo", "chmod", "644", "/etc/dnsmasq.conf"])
+            subprocess.run(["sudo", "chmod", "644", "/etc/dnsmasq.d/hotspot.conf"])
+
+            # Create log file with proper permissions
+            subprocess.run(["sudo", "touch", "/var/log/dnsmasq.log"])
+            subprocess.run(["sudo", "chmod", "644", "/var/log/dnsmasq.log"])
+
             # Enable and start dnsmasq
             subprocess.run(["sudo", "systemctl", "enable", "dnsmasq"], check=True)
-            subprocess.run(["sudo", "systemctl", "start", "dnsmasq"], check=True)
             
+            # Start dnsmasq with error logging
+            result = subprocess.run(
+                ["sudo", "systemctl", "start", "dnsmasq"],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode != 0:
+                logger.error(f"dnsmasq start failed: {result.stderr}")
+                # Get detailed status
+                status = subprocess.run(
+                    ["sudo", "systemctl", "status", "dnsmasq"],
+                    capture_output=True,
+                    text=True
+                )
+                logger.error(f"dnsmasq status: {status.stdout}")
+                return False
+
             # Verify it's running
             status = subprocess.run(
                 ["systemctl", "is-active", "dnsmasq"],
@@ -104,9 +150,11 @@ address=/www.msftconnecttest.com/192.168.0.1"""
                 text=True
             )
             if "active" not in status.stdout:
-                raise Exception("dnsmasq failed to start")
-                
+                logger.error("dnsmasq failed to start")
+                return False
+
             return True
+
         except Exception as e:
             logger.error(f"Error configuring dnsmasq: {e}")
             return False
@@ -114,15 +162,19 @@ address=/www.msftconnecttest.com/192.168.0.1"""
     def _build_network_commands(self) -> List[List[str]]:
         """Build NetworkManager commands for hotspot setup"""
         return [
+            ["sudo", "rfkill", "unblock", "wifi"],  # Ensure WiFi is unblocked
             ["sudo", "nmcli", "radio", "wifi", "on"],  # Ensure WiFi is on
-            ["sudo", "nmcli", "device", "wifi", "hotspot", 
+            ["sudo", "ip", "link", "set", "wlan0", "up"],  # Ensure interface is up
+            ["sudo", "nmcli", "device", "wifi", "hotspot",
              "con-name", self.connection_name,
              "ssid", self.ssid,
              "band", "bg",
              "channel", "1"],
             ["sudo", "nmcli", "connection", "modify", self.connection_name,
              "ipv4.method", "manual",
-             "ipv4.addresses", "192.168.0.1/24"]
+             "ipv4.addresses", "192.168.0.1/24",
+             "ipv4.gateway", "192.168.0.1",
+             "ipv4.dns", "8.8.8.8,8.8.4.4"]
         ]
 
     def setup_iptables(self) -> bool:
@@ -131,6 +183,10 @@ address=/www.msftconnecttest.com/192.168.0.1"""
             # Flush existing rules
             subprocess.run(["sudo", "iptables", "-F"], check=True)
             subprocess.run(["sudo", "iptables", "-t", "nat", "-F"], check=True)
+            
+            # Enable IP forwarding
+            with open('/proc/sys/net/ipv4/ip_forward', 'w') as f:
+                f.write('1\n')
             
             # Set up NAT
             rules = [
