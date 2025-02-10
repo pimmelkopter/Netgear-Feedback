@@ -36,7 +36,7 @@ bogus-priv
 dhcp-range=192.168.0.50,192.168.0.150,12h
 dhcp-option=3,192.168.0.1
 dhcp-option=6,192.168.0.1
-address=/#/192.168.0.1:5000
+address=/#/192.168.0.1
 """
         with open(self.dnsmasq_conf_path, 'w') as f:
             f.write(config)
@@ -108,6 +108,13 @@ rsn_pairwise=CCMP
                 "sudo", "iptables", "-A", "FORWARD",
                 "-i", "wlan0", "-o", "eth0",
                 "-j", "ACCEPT"
+            ], check=True)
+
+            # Redirect all HTTP traffic to port 5000
+            subprocess.run([
+                "sudo", "iptables", "-t", "nat", "-A", "PREROUTING",
+                "-i", "wlan0", "-p", "tcp", "--dport", "80",
+                "-j", "REDIRECT", "--to-port", "5000"
             ], check=True)
 
             self.active = True
