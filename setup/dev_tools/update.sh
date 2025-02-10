@@ -97,6 +97,7 @@ main() {
     manage_services restart "${services[@]}"
 
     log_success "Update und Dienste-Konfiguration abgeschlossen!"
+    sudo journalctl -b -u switch_monitor.service --no-pager --since -10m
 }
 
 # Skript ausführen

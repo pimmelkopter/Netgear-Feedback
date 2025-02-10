@@ -135,7 +135,6 @@ set_permissions() {
     sudo chown -R admin:admin "${PROJECT_DIR}/web"
     sudo chmod +x setup/dev_tools/update.sh
     sudo chmod +x setup/dev_tools/git-reset.sh
-    sudo chmod +x setup/dev_tools/fixed-hotspot.sh
 }
 
 configure_services() {
@@ -164,7 +163,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=admin
+User=root
 WorkingDirectory=${PROJECT_DIR}
 Environment="OPENSSL_CONF=${PROJECT_DIR}/config/openssl.cnf"
 Environment="PYTHONPATH=${PROJECT_DIR}"

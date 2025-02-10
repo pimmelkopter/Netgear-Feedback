@@ -52,6 +52,7 @@ class SwitchMonitor:
         def update_progress(progress: int):
             nonlocal last_progress
             led_progress = int((progress / total) * self.config.led_count)
+            led_progress = max(0, min(led_progress, self.config.led_count - 1))
             if led_progress != last_progress:
                 self.led_service.show_progress(led_progress)
                 last_progress = led_progress
