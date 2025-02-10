@@ -179,6 +179,7 @@ class SwitchMonitor:
         """Main monitoring loop with adaptive timing"""
         generator = PortMappingGenerator(self.config)
         port_led_map = generator.generate_mapping()
+        logger.debug(f"Generated port mapping: {port_led_map}")  # Neues Debug Log
         
         last_update = time.monotonic()
         last_led_update = time.monotonic()
@@ -186,27 +187,16 @@ class SwitchMonitor:
 
         while self._running and not self._should_stop:
             current_time = time.monotonic()
-            
-            # Calculate timing
-            time_since_update = current_time - last_update
-            time_since_led = current_time - last_led_update
-            
-            # Adaptive sleep based on next required action
-            next_update = min(
-                self.config.update_interval - time_since_update,
-                LED_UPDATE_INTERVAL - time_since_led
-            )
-            sleep_time = max(0.01, next_update)
-            time.sleep(sleep_time)
-            
+            # ... Rest des Codes
             try:
-                # Update port info at configured interval
                 if time_since_update >= self.config.update_interval:
+                    logger.debug("Updating port info...")  # Neues Debug Log
                     self.update_port_info()
                     last_update = current_time
 
                 # Update LEDs at fixed interval
                 if time_since_led >= LED_UPDATE_INTERVAL:
+                    logger.debug("Updating LEDs...")  # Neues Debug Log
                     blink_states = calculate_blink_states()
                     with self._cache_lock:
                         self.led_service.update_port_leds(

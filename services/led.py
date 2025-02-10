@@ -59,7 +59,8 @@ class LEDService:
 
     def show_status(self, success: bool, duration: float = 2.0):
         try:
-            color = Color(0,0,255) if success else Color(255,0,255)
+            # Nutze ColorSystem statt hardcoded Farben
+            color = ColorSystem.VLAN_DEFAULTS[1] if success else Color(255,0,255)
             for i in range(self.config.led_count):
                 self.strip.setPixelColor(i, color if i < self.config.port_count else Color(0,0,0))
             self.strip.show()
@@ -127,7 +128,8 @@ class LEDService:
                         self.strip.setPixelColor(last_led, Color(0,0,0))
                     elif poe:
                         if phase % 2 == 0:
-                            self.strip.setPixelColor(last_led, Color(0,0,255))
+                            # POE Indikator - Nutze ColorSystem
+                            self.strip.setPixelColor(last_led, Color(*ColorSystem.SPEED_COLORS[0]))
                         else:
                             self.strip.setPixelColor(
                                 last_led, 
