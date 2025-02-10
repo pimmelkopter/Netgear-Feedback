@@ -2,16 +2,17 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from functools import wraps
 import jwt
-import time
 import os
 from datetime import datetime, timedelta
 import logging
+from werkzeug.serving import make_server
 import threading
 from typing import Optional, Dict, Any
 from .switch_api import SwitchAPI, SwitchAPIError
 from .interfaces import SwitchMonitorInterface, HotspotServiceInterface
 from .config import Config
 from .utils import VLANColorManager
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,123 +70,121 @@ class WebService:
             return f(*args, **kwargs)
         return decorated
 
-    def _register_routes(self, app: Flask):
-        """Register application routes"""
-        @app.route('/')
+    def setup_routes(self):
+        @self.app.route('/')
         @self.login_required
         def index():
             try:
-                port_vlans = self._get_port_vlans()
+                switch_api = SwitchAPI()
+                
+                # Get Port-VLAN Mapping
+                port_vlans = {}
+                try:
+                    port_info = switch_api.get_port_info()
+                    for port in port_info:
+                        port_id = port.get('portId')
+                        if port_id and 1 <= port_id <= self.config.port_count:
+                            port_vlans[port_id] = port.get('portVlanId', 1)
+                except:
+                    # Fallback if no switch data
+                    port_vlans = {port: 1 for port in range(1, self.config.port_count + 1)}
+
+                # Get VLAN colors and names from config
                 color_manager = VLANColorManager()
-                vlan_colors, vlan_names = self._get_vlan_info()
+                vlan_colors = {}
+                vlan_names = {}
+                
+                for key, value in self.config._config.items():
+                    if key.startswith('vlan') and '_color' in key:
+                        try:
+                            parts = key.replace('vlan', '').split('_')
+                            vlan_id = int(parts[0])
+                            name = parts[1]
+                            
+                            r, g, b = color_manager.get_vlan_color(vlan_id)
+                            vlan_colors[vlan_id] = f"rgb({r},{g},{b})"
+                            vlan_names[vlan_id] = name
+                        except (ValueError, IndexError):
+                            continue
 
                 return render_template('index.html', 
-                    show_login=False,
-                    port_vlans=port_vlans,
-                    vlan_colors=vlan_colors,
-                    vlan_names=vlan_names,
-                    script_running=True)
+                                    show_login=False,
+                                    port_vlans=port_vlans,
+                                    vlan_colors=vlan_colors,
+                                    vlan_names=vlan_names,
+                                    script_running=True)
             except Exception as e:
                 logger.error(f"Error rendering template: {e}")
                 return str(e), 500
 
-        @app.route('/api/status')
+        @self.app.route('/api/status')
         @self.login_required
         def status():
-            try:
-                return jsonify({
-                    'hotspot_active': self.hotspot_service.is_active(),
-                    'switch_connected': self.switch_monitor.is_connected(),
-                    'uptime': self.switch_monitor.get_uptime()
-                })
-            except Exception as e:
-                logger.error(f"Error getting status: {e}")
-                return jsonify({'error': str(e)}), 500
+            return jsonify({
+                'hotspot_active': self.hotspot_service.is_active(),
+                'switch_connected': self.switch_monitor.is_connected(),
+                'uptime': self.switch_monitor.get_uptime()
+            })
 
-        @app.route('/login', methods=['POST', 'GET'])
+        @self.app.route('/login', methods=['POST'])
         def login():
-            try:
-                credentials = self._get_credentials()
-                if not credentials:
-                    return render_template('index.html', 
-                        show_login=True, 
-                        error="Invalid request format")
-
-                if self._validate_credentials(*credentials):
-                    token = self._generate_token(credentials[0])
-                    session['token'] = token
-                    session.permanent = True
-                    
-                    if request.is_json:
-                        return jsonify({'status': 'success'})
+            if request.is_json:
+                data = request.get_json()
+                username = data.get('username')
+                password = data.get('password')
+            else:
+                username = request.form.get('username')
+                password = request.form.get('password')
+            
+            if username == self.config.username and password == self.config.password:
+                token = jwt.encode({
+                    'user': username,
+                    'exp': datetime.utcnow() + timedelta(hours=8)
+                }, self.app.config['SECRET_KEY'])
+                session['token'] = token
+                
+                if request.is_json:
+                    return jsonify({'status': 'success'})
+                else:
                     return redirect(url_for('index'))
+            
+            return render_template('index.html', show_login=True, error="Invalid credentials")
 
-                return render_template('index.html', 
-                    show_login=True, 
-                    error="Invalid credentials")
-            except Exception as e:
-                logger.error(f"Login error: {e}")
-                return render_template('index.html', 
-                    show_login=True, 
-                    error="System error")
-
-        @app.route('/api/switch/port/<int:port_id>', methods=['POST'])
+        @self.app.route('/api/switch/port/<int:port_id>', methods=['POST'])
         @self.login_required
         def update_port(port_id):
             try:
                 data = request.get_json()
                 vlan_id = data.get('vlan')
-
+                
                 if not vlan_id:
-                    return jsonify({
-                        'status': 'error', 
-                        'message': 'Missing VLAN ID'
-                    }), 400
-
-                # Validate port and VLAN IDs
-                if not 1 <= port_id <= self.config.port_count:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'Invalid port ID: {port_id}'
-                    }), 400
+                    return jsonify({'status': 'error', 'message': 'Missing VLAN ID'}), 400
+                    
+                switch_api = SwitchAPI()
                 
-                if not 1 <= vlan_id <= 4094:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'Invalid VLAN ID: {vlan_id}'
-                    }), 400
-
-                switch_api = self._get_switch_api()
-                
-                # Set VLAN and save config
-                if switch_api.set_port_vlan(port_id, vlan_id, save_config=True):
-                    # Invalidate cache after successful update
-                    self._invalidate_cache()
+                if switch_api.set_port_vlan(port_id, vlan_id):
                     return jsonify({'status': 'success'})
-                
-                return jsonify({
-                    'status': 'error', 
-                    'message': 'Failed to update port'
-                }), 500
-
-            except ValueError as e:
-                logger.error(f"Invalid input: {e}")
-                return jsonify({
-                    'status': 'error', 
-                    'message': str(e)
-                }), 400
-            except SwitchAPIError as e:
-                logger.error(f"API error: {e}")
-                return jsonify({
-                    'status': 'error', 
-                    'message': str(e)
-                }), 503
+                return jsonify({'status': 'error', 'message': 'Failed to update port'}), 500
+                    
             except Exception as e:
                 logger.error(f"Unexpected error: {e}")
                 return jsonify({
                     'status': 'error', 
                     'message': 'Internal server error'
                 }), 500
+        
+        # Captive Portal Routes
+        @self.app.route('/generate_204')  # Android captive portal check
+        @self.app.route('/mobile/status.php')  # iOS captive portal check
+        @self.app.route('/library/test/success.html')  # iOS/macOS captive portal check
+        @self.app.route('/hotspot-detect.html')  # iOS/macOS captive portal check
+        @self.app.route('/ncsi.txt')  # Windows captive portal check
+        def captive_portal_check():
+            return redirect('http://192.168.0.1:5000/portal')
+
+        @self.app.route('/portal')
+        def portal():
+            return render_template('portal.html')
 
     def _get_credentials(self) -> Optional[tuple]:
         """Extract credentials from request"""
@@ -273,13 +272,20 @@ class WebService:
     def run(self, host='192.168.0.1', port=5000, debug=False):
         """Run the web interface"""
         try:
-            # Explicitly bind only to hotspot interface
+            # Start the captive portal server on port 80
+            portal_server = make_server(host, 80, self.app)
+            portal_thread = threading.Thread(target=portal_server.serve_forever)
+            portal_thread.daemon = True
+            portal_thread.start()
+            
+            # Start the main application server on port 5000
             self.app.run(
                 host=host,
                 port=port,
                 debug=debug,
-                use_reloader=False  # Disable reloader in threaded environment
+                use_reloader=False
             )
+            
         except Exception as e:
             logger.error(f"Failed to start web interface: {e}")
             raise

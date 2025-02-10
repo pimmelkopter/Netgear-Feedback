@@ -110,13 +110,6 @@ rsn_pairwise=CCMP
                 "-j", "ACCEPT"
             ], check=True)
 
-            # Redirect all HTTP traffic to port 5000
-            subprocess.run([
-                "sudo", "iptables", "-t", "nat", "-A", "PREROUTING",
-                "-i", "wlan0", "-p", "tcp", "--dport", "80",
-                "-j", "REDIRECT", "--to-port", "5000"
-            ], check=True)
-
             self.active = True
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             return True
