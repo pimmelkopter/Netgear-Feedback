@@ -2,82 +2,38 @@
 import time
 from typing import List, Tuple, Dict, Optional
 from rpi_ws281x import PixelStrip, Color, ws
-import neopixel
-import board
 import logging
 import threading
-from .utils import ColorSystem
+from .utils import ColorSystem, Config
+from queue import Queue
 
 logger = logging.getLogger(__name__)
 
 class LEDService:
-    """Thread-safe LED control service"""
-    def __init__(self, config):
+   class LEDService:
+    def __init__(self, config: Config):
         self.config = config
-        self._strip = None
-        self._lock = threading.Lock()
-        self._last_colors = []
         logger.info("Initializing LED Service...")
-        try:
-            self._initialize_strip()
-            logger.info("LED Service initialized successfully")
-        except Exception as e:
-            logger.error(f"LED Service initialization failed: {e}")
-            raise
-
-    def _initialize_strip(self) -> None:
-        """Initialize LED strip with config values and proper error handling"""
-        try:
-            logger.info(f"Initializing LED strip with {self.config.led_count} LEDs on pin {self.config.led_pin}")
-            
-            # Validate LED count
-            if not isinstance(self.config.led_count, int) or self.config.led_count <= 0:
-                raise ValueError(f"Invalid LED count: {self.config.led_count}")
-
-            # Initialize strip
-            self._strip = PixelStrip(
-                self.config.led_count,
-                self.config.led_pin,
-                800000,
-                10,
-                False,
-                self.config.led_brightness,
-                0,
-                ws.WS2812_STRIP
-            )
-            self._strip.begin()
-            logger.info("Using rpi_ws281x library for LED control")
-            
-            # Initialize last colors array
-            self._last_colors = [(0,0,0)] * self.config.led_count
-            
-            # Quick LED test - non-blocking
-            self._quick_test()
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize LED strip: {e}")
-            self._strip = None
-            raise
-
-    def _quick_test(self):
-        """Run a quick LED test without blocking"""
-        if not self._strip:
-            return
-            
-        with self._lock:
-            try:
-                # Flash blue briefly
-                for i in range(self.config.led_count):
-                    self._set_pixel_color(i, (0,0,255))
-                self._strip.show()
-                time.sleep(0.1)  # Very short delay
-                
-                # Then turn off
-                self.all_black()
-                logger.info("LED test completed")
-                
-            except Exception as e:
-                logger.error(f"Error during LED test: {e}")
+        self.strip = PixelStrip(
+            self.config.led_count,
+            self.config.led_pin,
+            800000,
+            10,
+            False,
+            self.config.led_brightness,
+            0,
+            ws.WS2812_STRIP
+        )
+        logger.info("Created PixelStrip object")
+        self.strip.begin()
+        logger.info("LED strip initialized")
+        
+        # Quick test
+        self.strip.setPixelColor(0, Color(255,0,0))
+        self.strip.show()
+        time.sleep(0.1)
+        self.strip.setPixelColor(0, Color(0,0,0))
+        self.strip.show()
 
     def _set_pixel_color(self, index: int, color: tuple) -> None:
         """Set LED color with bounds checking"""
