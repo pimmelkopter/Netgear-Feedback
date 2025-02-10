@@ -328,7 +328,7 @@ class ServiceManager:
 
     def start_services(self):
         """Start all services"""
-        # Start hotspot
+        # Start hotspot first to set up networking
         hotspot_thread = threading.Thread(
             target=self.hotspot_service.run,
             daemon=True
@@ -337,9 +337,16 @@ class ServiceManager:
         self.threads.append(hotspot_thread)
         logger.info("Started hotspot service")
 
-        # Start web interface
+        # Wait for hotspot to be ready
+        time.sleep(5)  # Give hotspot time to set up interfaces
+
+        # Start web interface on 192.168.0.1
         web_thread = threading.Thread(
-            target=lambda: self.web_service.run(host='0.0.0.0', port=5000),
+            target=lambda: self.web_service.run(
+                host='192.168.0.1',
+                port=80,
+                debug=False
+            ),
             daemon=True
         )
         web_thread.start()
@@ -354,7 +361,6 @@ class ServiceManager:
         logger.info("Cleaning up services...")
         self.hotspot_service.cleanup()
         self.switch_monitor.cleanup_and_exit()
-        # Web service cleanup nicht nötig da daemon=True
 
 def main():
     """Main entry point"""

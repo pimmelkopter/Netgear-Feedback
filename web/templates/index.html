@@ -93,9 +93,8 @@
     <div class="mb-8 flex justify-between items-center">
       <h1 class="text-2xl font-bold">VLAN Configuration</h1>
       <div class="flex space-x-4">
-        <span class="text-sm">
-                    Status: <span id="connection-status" class="font-bold">Checking...</span>
-        </span>
+                <span id="connection-status" class="text-sm font-bold">Checking...</span>
+                <span id="save-status" class="text-sm"></span>
       </div>
     </div>
 
@@ -105,6 +104,7 @@
       <span class="block sm:inline">The switch monitoring script is not running or unreachable.</span>
     </div>
     {% else %}
+    <!-- Port Grid -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
       <h2 class="text-xl font-semibold mb-4">Ports</h2>
       <div class="space-y-4">
@@ -138,6 +138,7 @@
       </div>
     </div>
 
+        <!-- VLAN Grid -->
     <div class="bg-white rounded-lg shadow p-6 mb-6">
         <h2 class="text-xl font-semibold mb-4">VLANs</h2>
         <div class="grid grid-cols-6 gap-4" id="vlan-container">
@@ -158,6 +159,7 @@
         </div>
       </div>
 
+        <!-- Action Buttons -->
     <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center">
       <div class="text-sm text-gray-600" id="status-message">
         Select a VLAN to begin
@@ -204,22 +206,25 @@
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                 }
                 
                 return await response.json();
             } catch (error) {
-                handleError(error, `API request to ${url}`);
+                console.error(`API request failed: ${error.message}`);
                 throw error;
             }
         }
 
-        // VLAN management
+        // VLAN management state
     const selectedVlan = {
       value: null,
       pending: {},
+            failed: new Set()
     };
 
+        // UI state management
         function updateUIState(isLoading = false) {
             const buttons = document.querySelectorAll('button');
             buttons.forEach(button => {
@@ -228,24 +233,29 @@
             });
         }
 
+        // Update port colors and styles
     function updatePortColors() {
       document.querySelectorAll('.port-button').forEach(button => {
-        const vlanId = selectedVlan.pending[button.dataset.port] || button.dataset.currentVlan;
+                const port = button.dataset.port;
+                const vlanId = selectedVlan.pending[port] || button.dataset.currentVlan;
         const vlanButton = document.querySelector(`[data-vlan="${vlanId}"]`);
+                
         if (vlanButton) {
           const backgroundColor = vlanButton.style.backgroundColor;
           button.style.backgroundColor = backgroundColor;
+                    
+                    // Calculate text color based on background brightness
           const rgb = backgroundColor.match(/\d+/g).map(Number);
-          button.style.color = calculateTextColor(rgb);
-        }
-      });
-    }
-
-    function calculateTextColor(rgb) {
       const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
-      return brightness > 125 ? 'black' : 'white';
+                    button.style.color = brightness > 125 ? 'black' : 'white';
     }
 
+                // Show failed state if applicable
+                button.classList.toggle('failed', selectedVlan.failed.has(port));
+            });
+        }
+
+        // VLAN selection handler
     function handleVlanSelect(button) {
       const vlanId = parseInt(button.dataset.vlan);
       const statusMessage = document.getElementById('status-message');
@@ -262,14 +272,8 @@
       }
     }
 
-        // Event listeners
-    document.getElementById('vlan-container').addEventListener('click', e => {
-      const button = e.target.closest('.vlan-button');
-      if (button) handleVlanSelect(button);
-    });
-
-    document.querySelectorAll('.port-button').forEach(button => {
-      button.addEventListener('click', () => {
+        // Port click handler
+        function handlePortClick(button) {
         if (!selectedVlan.value) return;
 
         const port = button.dataset.port;
@@ -277,30 +281,29 @@
 
         if (selectedVlan.value === currentVlan) {
           delete selectedVlan.pending[port];
-          button.classList.remove('pending-change');
-          button.querySelectorAll('div').forEach(div => div.classList.remove('pending-text'));
         } else {
           selectedVlan.pending[port] = selectedVlan.value;
-          button.classList.add('pending-change');
-          button.querySelectorAll('div').forEach(div => div.classList.add('pending-text'));
+            }
+
+            selectedVlan.failed.delete(port);
+        updateUI();
         }
 
-        updateUI();
-      });
-    });
-
+        // Update all UI elements
     function updateUI() {
       updatePortColors();
       updateButtons();
       updatePortCounts();
     }
 
+        // Update button states
     function updateButtons() {
       const hasPending = Object.keys(selectedVlan.pending).length > 0;
       document.getElementById('apply-button').disabled = !hasPending;
       document.getElementById('cancel-button').disabled = !hasPending;
     }
 
+        // Update port counts for each VLAN
     function updatePortCounts() {
       document.querySelectorAll('.port-count').forEach(span => {
         const vlanId = parseInt(span.dataset.vlan);
@@ -312,79 +315,86 @@
       });
     }
 
+        // Apply changes with improved error handling
     async function applyChanges() {
       const statusMessage = document.getElementById('status-message');
             updateUIState(true);
       statusMessage.textContent = 'Applying changes...';
+            selectedVlan.failed.clear();
 
       try {
-        for (const [port, vlan] of Object.entries(selectedVlan.pending)) {
+                const ports = Object.entries(selectedVlan.pending);
+                let successCount = 0;
+
+                for (const [port, vlan] of ports) {
+                    try {
                     await apiRequest(`/api/switch/port/${port}`, {
             method: 'POST',
             body: JSON.stringify({ vlan })
           });
 
+                        // Update UI for successful port
           const button = document.querySelector(`[data-port="${port}"]`);
           button.dataset.currentVlan = vlan;
-          button.classList.remove('pending-change');
-          button.querySelectorAll('div').forEach(div => div.classList.remove('pending-text'));
-        }
+                        delete selectedVlan.pending[port];
+                        successCount++;
+                    } catch (error) {
+                        console.error(`Failed to update port ${port}:`, error);
+                        selectedVlan.failed.add(port);
+                    }
+                }
 
-        selectedVlan.pending = {};
+                // Update status message based on results
+                if (successCount === ports.length) {
+                    statusMessage.textContent = 'All changes applied successfully';
+                    statusMessage.className = 'text-green-600';
+                } else if (successCount > 0) {
+                    statusMessage.textContent = `Applied ${successCount}/${ports.length} changes. Some ports failed.`;
+                    statusMessage.className = 'text-yellow-600';
+                } else {
+                    statusMessage.textContent = 'Failed to apply changes';
+                    statusMessage.className = 'text-red-600';
+                }
+
         updateUI();
-        statusMessage.textContent = 'Changes applied successfully';
       } catch (error) {
-                handleError(error, 'Applying changes');
+                statusMessage.textContent = `Error: ${error.message}`;
+                statusMessage.className = 'text-red-600';
       } finally {
                 updateUIState(false);
       }
     }
 
+        // Cancel pending changes
     function cancelChanges() {
       selectedVlan.pending = {};
+            selectedVlan.failed.clear();
       document.querySelectorAll('.port-button').forEach(button => {
-        button.classList.remove('pending-change');
+                button.classList.remove('pending-change', 'failed');
         button.querySelectorAll('div').forEach(div => div.classList.remove('pending-text'));
       });
       updateUI();
       document.getElementById('status-message').textContent = 'Changes cancelled';
     }
 
-        // Login handling
-        async function handleLogin(event) {
-            event.preventDefault();
-            const form = event.target;
-            const errorDiv = document.getElementById('loginError');
-            const submitButton = form.querySelector('button[type="submit"]');
-            try {
-                updateUIState(true);
-                errorDiv.classList.add('hidden');
-                
-                const response = await apiRequest('/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: form.username.value,
-                        password: form.password.value
-                    })
-                });
+        // Event listeners
+        document.getElementById('vlan-container').addEventListener('click', e => {
+            const button = e.target.closest('.vlan-button');
+            if (button) handleVlanSelect(button);
+        });
 
-                if (response.status === 'success') {
-                    window.location.href = '/';
-                } else {
-                    throw new Error('Login failed');
-                }
-            } catch (error) {
-                errorDiv.querySelector('h3').textContent = error.message || 'Login failed. Please check your credentials.';
-                errorDiv.classList.remove('hidden');
-            } finally {
-                updateUIState(false);
-            }
+        document.querySelectorAll('.port-button').forEach(button => {
+            button.addEventListener('click', () => handlePortClick(button));
+        });
+
+        // Initialize page and start status updates
+        if (!document.getElementById('loginForm')) {
+            updateUI();
+            updateConnectionStatus();
+            setInterval(updateConnectionStatus, 30000);
         }
 
-        // Status updates
+        // Connection status update
         async function updateConnectionStatus() {
             try {
                 const response = await apiRequest('/api/status');
@@ -392,38 +402,27 @@
                 
                 if (response.switch_connected) {
                     statusElement.textContent = 'Connected';
-                    statusElement.className = 'font-bold text-green-600';
+                    statusElement.className = 'text-sm font-bold text-green-600';
                 } else {
                     statusElement.textContent = 'Disconnected';
-                    statusElement.className = 'font-bold text-red-600';
+                    statusElement.className = 'text-sm font-bold text-red-600';
                 }
             } catch (error) {
-                handleError(error, 'Status update');
+                const statusElement = document.getElementById('connection-status');
+                statusElement.textContent = 'Connection Error';
+                statusElement.className = 'text-sm font-bold text-red-600';
             }
         }
 
-        // Initialize page
-        if (!document.getElementById('loginForm')) {
-    updateUI();
-            updateConnectionStatus();
-            // Update status every 30 seconds
-            setInterval(updateConnectionStatus, 30000);
-        }
-
-        // Global error handling
+        // Error handling for uncaught promises
     window.addEventListener('unhandledrejection', event => {
       console.error('Unhandled promise rejection:', event.reason);
-            handleError(event.reason, 'Unhandled rejection');
-        });
-
-        // Service worker registration for better offline experience
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/js/sw.js').catch(error => {
-                    console.error('ServiceWorker registration failed:', error);
-                });
+            const statusMessage = document.getElementById('status-message');
+            if (statusMessage) {
+                statusMessage.textContent = `Error: ${event.reason.message || 'Unknown error'}`;
+                statusMessage.className = 'text-red-600';
+            }
     });
-        }
   </script>
 </body>
 </html>

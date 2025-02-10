@@ -178,15 +178,7 @@ rsn_pairwise=CCMP
         except Exception:
             return False
 
-    def run(self, host='192.168.0.1', port=80, debug=False):
-        """Run the web interface"""
-        # Ensure we're running as root to bind to port 80
-        if port < 1024 and os.geteuid() != 0:
-            logger.error("Must run as root to bind to port 80")
-            return
-            
-        self.app.run(host=host, port=port, debug=debug)
-        
+    def run(self):
         """Main service loop"""
         retry_count = 0
         max_retries = 3
