@@ -21,10 +21,8 @@ check_config() {
     if [[ ! -f "$config_file" ]]; then
         log_error "Konfigurationsdatei $config_file nicht gefunden!"
         return 1
-    }
-
-    # Hier könnten weitere Validierungen hinzugefügt werden
-    # z.B. Prüfen der JSON-Struktur
+    fi
+    return 0
 }
 
 # Dienste-Verwaltung
@@ -58,7 +56,7 @@ manage_services() {
 
 # Hauptfunktion
 main() {
-    local PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+    local PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
     local CONFIG_FILE="${PROJECT_DIR}/config/config.json"
     local SECRETS_FILE="${PROJECT_DIR}/config/secrets.json"
 
@@ -95,7 +93,7 @@ main() {
     fi
 
     # Dienste verwalten
-    local services=("switch_monitor" "hotspot" "web_interface")
+    local services=("switch_monitor") #"hotspot" "web_interface"
     manage_services restart "${services[@]}"
 
     log_success "Update und Dienste-Konfiguration abgeschlossen!"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -euxo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -15,6 +15,7 @@ echo_status() {
 echo_error() {
     echo -e "${RED}[!]${NC} $1"
 }
+
 
 # Nginx Konfiguration erstellen
 create_nginx_config() {
@@ -127,7 +128,16 @@ setup_python_environment() {
     pip install -r "${PROJECT_DIR}/setup/requirements.txt"
 }
 
-# Dienste konfigurieren
+# Berechtigungen setzen
+set_permissions() {
+    echo_status "Setting permissions..."
+    
+    sudo chown -R admin:admin "${PROJECT_DIR}/web"
+    sudo chmod +x setup/dev_tools/update.sh
+    sudo chmod +x setup/dev_tools/git-reset.sh
+    sudo chmod +x setup/dev_tools/fixed-hotspot.sh
+}
+
 configure_services() {
     echo_status "Configuring services..."
     
@@ -144,19 +154,32 @@ configure_services() {
     
     # DNSMasq konfigurieren
     create_dnsmasq_config
-}
-
-# Berechtigungen setzen
-set_permissions() {
-    echo_status "Setting permissions..."
     
-    sudo chown -R admin:admin "${PROJECT_DIR}/web"
-    sudo chmod +x setup/dev_tools/update.sh
-    sudo chmod +x setup/dev_tools/git-reset.sh
-    sudo chmod +x setup/dev_tools/fixed-hotspot.sh
+    # Einzelner Systemd-Service für main.py
+    cat << EOF | sudo tee /etc/systemd/system/switch_monitor.service > /dev/null
+[Unit]
+Description=Switch Monitor Service
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=admin
+WorkingDirectory=${PROJECT_DIR}
+Environment="OPENSSL_CONF=${PROJECT_DIR}/config/openssl.cnf"
+Environment="PYTHONPATH=${PROJECT_DIR}"
+ExecStart=${PROJECT_DIR}/venv/bin/python3 -m src.main
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
 }
 
-# Hauptinstallation
+# In der main()-Funktion, ändern Sie die Dienste-Aktivierung
 main() {
     echo_status "Starting installation..."
     
@@ -166,14 +189,17 @@ main() {
     configure_services
     set_permissions
     
-    # Dienste neustarten
+    # Dienste neustarten und aktivieren
     sudo systemctl daemon-reload
     sudo systemctl restart nginx
     sudo systemctl restart dnsmasq
+    
+    # Nur noch den Hauptdienst aktivieren und starten
+    sudo systemctl enable switch_monitor.service
+    sudo systemctl start switch_monitor.service
     
     echo_status "Installation complete!"
     echo "Please ensure config/config.json and config/secrets.json are properly configured. And reboot system"
 }
 
-# Skript ausführen
 main
