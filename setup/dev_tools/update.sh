@@ -25,34 +25,6 @@ check_config() {
     return 0
 }
 
-# Dienste-Verwaltung
-manage_services() {
-    local action="$1"
-    shift
-    local services=("$@")
-
-    for service in "${services[@]}"; do
-        if systemctl list-unit-files | grep -q "$service.service"; then
-            case "$action" in
-                restart)
-                    if systemctl is-active --quiet "$service.service"; then
-                        log_success "Neustarten von $service"
-                        sudo systemctl restart "$service.service" || log_error "Fehler beim Neustarten von $service"
-                    else
-                        log_success "Starten von $service"
-                        sudo systemctl start "$service.service" || log_error "Fehler beim Starten von $service"
-                    fi
-                    sudo systemctl enable "$service.service" || log_error "Fehler beim Aktivieren von $service"
-                    ;;
-                stop)
-                    sudo systemctl stop "$service.service" || log_error "Fehler beim Stoppen von $service"
-                    ;;
-            esac
-        else
-            log_error "Service $service nicht gefunden"
-        fi
-    done
-}
 
 # Hauptfunktion
 main() {

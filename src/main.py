@@ -349,7 +349,6 @@ class ServiceManager:
 
 def main():
     """Main entry point with error handling"""
-    manager = None
     try:
         manager = ServiceManager()
         manager.start_services()

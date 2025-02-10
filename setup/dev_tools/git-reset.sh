@@ -41,8 +41,8 @@ check_internet() {
 # Funktion für Ethernet-Update
 setup_ethernet() {
     echo_warning "Bitte Ethernet-Kabel ans Internet anschließen"
-    echo_warning "Sie haben 30 Sekunden zum Umstecken..."
-    sleep 30
+    echo_warning "Sie haben 5 Sekunden zum Umstecken..."
+    sleep 5
     
     echo_status "Stelle Ethernet-Verbindung her..."
     sudo nmcli connection delete "Wired connection 1" 2>/dev/null || true
@@ -94,10 +94,10 @@ perform_update() {
 # Funktion für die Wiederherstellung
 restore_connection() {
     echo_warning "Stelle ursprüngliche Verbindung wieder her..."
-    echo_warning "Sie haben 30 Sekunden zum Umstecken/Verbinden..."
+    echo_warning "Sie haben 5 Sekunden zum Umstecken/Verbinden..."
     sudo systemctl restart NetworkManager.service
     sudo systemctl start hotspot.service
-    sleep 30
+    sleep 5
     
     echo_status "Starte switch_monitor neu..."
     sudo systemctl restart switch_monitor.service
