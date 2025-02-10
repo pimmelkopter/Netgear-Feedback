@@ -66,30 +66,36 @@ class HotspotService:
     def setup_dnsmasq(self) -> bool:
         """Configure and start dnsmasq"""
         try:
-            # Stop dnsmasq if running
+            # Stop any existing dnsmasq processes
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
-            time.sleep(1)
+            subprocess.run(["sudo", "killall", "dnsmasq"], check=False)
+            time.sleep(2)
 
-            # Create dnsmasq config directory if it doesn't exist
-            os.makedirs("/etc/dnsmasq.d", exist_ok=True)
+            # Backup original config if it exists
+            if os.path.exists("/etc/dnsmasq.conf"):
+                subprocess.run(["sudo", "cp", "/etc/dnsmasq.conf", "/etc/dnsmasq.conf.backup"], check=False)
 
-            # Basic dnsmasq configuration
+            # Create clean minimal config
             config = """# Configuration for hotspot
+except-interface=eth0
 interface=wlan0
-no-dhcp-interface=eth0
-bind-interfaces
+bind-dynamic
+listen-address=192.168.0.1
+no-resolv
 server=8.8.8.8
 server=8.8.4.4
 
 # DHCP configuration
-dhcp-range=192.168.0.10,192.168.0.50,12h
-dhcp-option=3,192.168.0.1
-dhcp-option=6,192.168.0.1
+dhcp-range=192.168.0.50,192.168.0.150,255.255.255.0,12h
+dhcp-authoritative
+dhcp-option=option:router,192.168.0.1
+dhcp-option=option:dns-server,192.168.0.1
 
 # Logging
 log-queries
 log-dhcp
 log-facility=/var/log/dnsmasq.log
+log-async=25
 
 # Captive portal redirects
 address=/detectportal.firefox.com/192.168.0.1
