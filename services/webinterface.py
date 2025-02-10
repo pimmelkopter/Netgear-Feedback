@@ -270,7 +270,16 @@ class WebService:
         with self._api_cache_lock:
             self._api_cache.clear()
 
-    def run(self, host: str = '0.0.0.0', port: int = 5000, 
-            debug: bool = False):
-        """Run web server"""
-        self.app.run(host=host, port=port, debug=debug)
+    def run(self, host='192.168.0.1', port=5000, debug=False):
+        """Run the web interface"""
+        try:
+            # Explicitly bind only to hotspot interface
+            self.app.run(
+                host=host,
+                port=port,
+                debug=debug,
+                use_reloader=False  # Disable reloader in threaded environment
+            )
+        except Exception as e:
+            logger.error(f"Failed to start web interface: {e}")
+            raise
