@@ -102,7 +102,7 @@ class WebService:
                 logger.error(f"Error getting status: {e}")
                 return jsonify({'error': str(e)}), 500
 
-        @app.route('/login', methods=['POST'])
+        @app.route('/login', methods=['POST', 'GET'])
         def login():
             try:
                 credentials = self._get_credentials()
