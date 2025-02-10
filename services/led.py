@@ -36,61 +36,29 @@ class LEDService:
         self.strip.show()
 
     def _set_pixel_color(self, index: int, color: tuple) -> None:
-        """Set LED color with bounds checking"""
-        if self._strip is None:
-            return
-
         try:
             if 0 <= index < self.config.led_count:
-                if self._last_colors[index] != color:
-                    self._strip.setPixelColor(index, Color(*color))
-                    self._last_colors[index] = color
+                self.strip.setPixelColor(index, Color(*color))
         except Exception as e:
             logger.error(f"Error setting pixel color at index {index}: {e}")
 
     def all_black(self) -> None:
-        """Turn all LEDs off safely"""
-        if self._strip is None:
-            return
-
-        with self._lock:
-            try:
-                black = (0,0,0)
-                for i in range(self.config.led_count):
-                    self._set_pixel_color(i, black)
-                self._strip.show()
-            except Exception as e:
-                logger.error(f"Error turning LEDs off: {e}")
+        try:
+            for i in range(self.config.led_count):
+                self.strip.setPixelColor(i, Color(0,0,0))
+            self.strip.show()
+        except Exception as e:
+            logger.error(f"Error turning LEDs off: {e}")
 
     def show_progress(self, progress: int) -> None:
-        """Show progress bar in white LEDs with proper error handling"""
-        if self._strip is None:
-            logger.error("LED strip not initialized")
-            return
-
-        with self._lock:
-            try:
-                # Ensure progress is within bounds
-                progress = max(0, min(progress, self.config.led_count))
-                
-                # Set colors
-                white = (255,255,255)
-                black = (0,0,0)
-                
-                # Update LEDs
-                for i in range(self.config.led_count):
-                    color = white if i < progress else black
-                    if i < len(self._last_colors):  # Zusätzliche Überprüfung
-                        self._set_pixel_color(i, color)
-                
-                # Show only if we have a valid strip
-                if self._strip:
-                    self._strip.show()
-                    
-            except Exception as e:
-                logger.error(f"Error showing progress: {e}")
-                # Log additional debug information
-                logger.debug(f"Progress: {progress}, LED count: {self.config.led_count}")
+        try:
+            progress = max(0, min(progress, self.config.led_count))
+            for i in range(self.config.led_count):
+                color = Color(255,255,255) if i < progress else Color(0,0,0)
+                self.strip.setPixelColor(i, color)
+            self.strip.show()
+        except Exception as e:
+            logger.error(f"Error showing progress: {e}")
 
     def show_status(self, success: bool, duration: float = 2.0):
         """Show success/failure status"""
