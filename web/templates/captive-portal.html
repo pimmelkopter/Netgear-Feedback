@@ -5,10 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Network Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    
+    <!-- Captive Portal Detection -->
     <meta http-equiv="refresh" content="0; url=http://captive.apple.com/hotspot-detect.html">
     <meta http-equiv="refresh" content="0; url=http://connectivitycheck.gstatic.com/generate_204">
     <meta http-equiv="refresh" content="0; url=http://connectivitycheck.android.com/generate_204">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body class="bg-gray-100">
@@ -19,50 +27,126 @@
                 <p class="text-gray-600 mt-2">Please login to access the network</p>
             </div>
             
-            <form method="POST" action="/login" class="space-y-6">
+            <form id="loginForm" class="space-y-6" onsubmit="handleLogin(event)">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                    <input type="text" id="username" name="username" required
+                    <input type="text" 
+                           id="username" 
+                           name="username" 
+                           required 
+                           minlength="3"
+                           pattern="[a-zA-Z0-9_-]+"
                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 
                                   focus:ring-indigo-500 focus:border-indigo-500"
-                           autocomplete="username">
+                           autocomplete="username"
+                           aria-label="Username">
                 </div>
                 
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" id="password" name="password" required
+                    <input type="password" 
+                           id="password" 
+                           name="password" 
+                           required
+                           minlength="4"
                            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 
                                   focus:ring-indigo-500 focus:border-indigo-500"
-                           autocomplete="current-password">
+                           autocomplete="current-password"
+                           aria-label="Password">
                 </div>
 
-                {% if error %}
-                <div class="p-3 bg-red-100 text-red-700 rounded" role="alert">
-                    {{ error }}
+                <div id="errorMessage" 
+                     class="hidden p-3 bg-red-100 text-red-700 rounded" 
+                     role="alert"
+                     aria-live="polite">
                 </div>
-                {% endif %}
 
                 <button type="submit"
+                        id="submitButton"
                         class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md 
                                shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 
-                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Login
+                               focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500
+                               disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="buttonText">Login</span>
+                    <span id="loadingSpinner" class="hidden ml-2">
+                        <!-- Simple loading spinner -->
+                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
                 </button>
             </form>
+
+            <!-- Network Status -->
+            <div class="mt-6 text-center text-sm text-gray-500">
+                <p>Status: <span id="networkStatus">Checking connection...</span></p>
+            </div>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const form = document.querySelector('form');
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const submitButton = form.querySelector('button[type="submit"]');
-                submitButton.disabled = true;
+        // Error handling utility
+        function handleError(error, context) {
+            console.error(`Error in ${context}:`, error);
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = error.message || 'An error occurred';
+            errorMessage.classList.remove('hidden');
+        }
+
+        // UI state management
+        function updateUIState(isLoading) {
+            const submitButton = document.getElementById('submitButton');
+            const buttonText = document.getElementById('buttonText');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const form = document.getElementById('loginForm');
+            
+            submitButton.disabled = isLoading;
+            buttonText.textContent = isLoading ? 'Logging in...' : 'Login';
+            loadingSpinner.classList.toggle('hidden', !isLoading);
+            
+            // Disable all form inputs during loading
+            Array.from(form.elements).forEach(element => {
+                if (element.tagName !== 'BUTTON') {
+                    element.disabled = isLoading;
+                }
+            });
+        }
+
+        // Network status check
+        async function checkNetworkStatus() {
+            const statusElement = document.getElementById('networkStatus');
+            try {
+                const response = await fetch('/api/status', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = data.hotspot_active ? 'Connected' : 'Waiting for connection';
+                    statusElement.className = data.hotspot_active ? 'text-green-600' : 'text-yellow-600';
+                } else {
+                    throw new Error('Network status check failed');
+                }
+            } catch (error) {
+                statusElement.textContent = 'Connection error';
+                statusElement.className = 'text-red-600';
+            }
+        }
+
+        // Login form handler
+        async function handleLogin(event) {
+            event.preventDefault();
+            const form = event.target;
+            const errorMessage = document.getElementById('errorMessage');
                 
                 try {
+                updateUIState(true);
+                errorMessage.classList.add('hidden');
+                
                     const response = await fetch('/login', {
                         method: 'POST',
                         headers: {
@@ -70,27 +154,51 @@
                             'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
                         },
                         body: JSON.stringify({
-                            username: document.getElementById('username').value,
-                            password: document.getElementById('password').value
+                        username: form.username.value,
+                        password: form.password.value
                         })
                     });
 
-                    if (response.ok) {
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
                         window.location.href = '/';
                     } else {
-                        const error = await response.text();
-                        throw new Error(error);
+                    throw new Error(data.message || 'Login failed');
                     }
                 } catch (error) {
-                    console.error('Login failed:', error);
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'p-3 bg-red-100 text-red-700 rounded mt-4';
-                    errorDiv.textContent = error.message || 'Login failed';
-                    form.appendChild(errorDiv);
+                handleError(error, 'Login');
                 } finally {
-                    submitButton.disabled = false;
-                }
+                updateUIState(false);
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            checkNetworkStatus();
+            // Check status every 10 seconds
+            setInterval(checkNetworkStatus, 10000);
+        });
+
+        // Form validation
+        const form = document.getElementById('loginForm');
+        const inputs = form.querySelectorAll('input[required]');
+        
+        inputs.forEach(input => {
+            input.addEventListener('invalid', (event) => {
+                event.preventDefault();
+                input.classList.add('border-red-500');
             });
+            
+            input.addEventListener('input', () => {
+                input.classList.remove('border-red-500');
+                document.getElementById('errorMessage').classList.add('hidden');
+            });
+        });
+
+        // Global error handling
+        window.addEventListener('unhandledrejection', event => {
+            handleError(event.reason, 'Unhandled rejection');
         });
     </script>
 </body>

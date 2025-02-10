@@ -1,49 +1,149 @@
 #!/bin/bash
-echo -e "\033[31m Bitte ans Internet anschließen! \033[0m"
-sleep 10
-echo "Stelle Verbindung auf DHCP um... - wenn die Nachricht länger als 30s bleibt drücke Strg+C"
-sudo nmcli connection delete "Wired connection 1"
-sudo nmcli connection add type ethernet ifname eth0 con-name "Wired connection 1" ipv4.method auto ipv6.method ignore
-sudo nmcli connection up "Wired connection 1"
 
-# Warte auf Internetverbindung
-echo "Warte auf Internetverbindung..."
-timeout=30  # Max. Wartezeit in Sekunden
-interval=1  # Intervalle zwischen den Ping-Versuchen
-elapsed=0
+# Farben für bessere Lesbarkeit
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-while ! ping -c 1 google.com &>/dev/null; do
-    sleep $interval
-    elapsed=$((elapsed + interval))
-    if [ $elapsed -ge $timeout ]; then
-        echo "Kein Internet - bitte Einstellungen überprüfen."
-        ./setup/dev_tools/update.sh
-        echo "Update.sh durchgeführt zum reset der network settings"
-        exit 1
-    fi
-done
+# Hilfsfunktionen
+echo_status() {
+    echo -e "${GREEN}[+]${NC} $1"
+}
 
-echo -e "\033[1;32m Internetverbindung hergestellt! \033[0m"
-git fetch origin
-git reset --hard origin/raspberrypi
+echo_warning() {
+    echo -e "${YELLOW}[!]${NC} $1"
+}
 
-# sudo nmcli connection delete "Wired connection 1" && sudo nmcli connection add type ethernet ifname eth0 con-name "Wired connection 1" ipv4.method auto ipv6.method ignore && sudo nmcli connection up "Wired connection 1"
+echo_error() {
+    echo -e "${RED}[!]${NC} $1"
+}
 
-# git fetch origin && git reset --hard origin/raspberrypi && sudo chmod +x setup/dev_tools/update.sh && sudo chmod +x setup/setup.sh && sudo chmod +x setup/dev_tools/git-reset.sh && ./setup/dev_tools/update.sh && sudo systemctl start hotspot.service
+# Funktion zum Prüfen der Internetverbindung
+check_internet() {
+    local timeout=30
+    local interval=1
+    local elapsed=0
+    
+    echo_status "Prüfe Internetverbindung..."
+    while ! ping -c 1 google.com &>/dev/null; do
+        sleep $interval
+        elapsed=$((elapsed + interval))
+        if [ $elapsed -ge $timeout ]; then
+            echo_error "Kein Internet - Timeout nach ${timeout} Sekunden"
+            return 1
+        fi
+    done
+    echo_status "Internetverbindung hergestellt!"
+    return 0
+}
 
-# sudo systemctl stop hotspot.service && systemctl restart NetworkManager.service && sudo systemctl stop switch_monitor.service 
-# sudo nmcli device wifi rescan
-# sudo nmcli device wifi connect "Martin Router King" password "hideyokidshideyowifi"
+# Funktion für Ethernet-Update
+setup_ethernet() {
+    echo_warning "Bitte Ethernet-Kabel ans Internet anschließen"
+    echo_warning "Sie haben 30 Sekunden zum Umstecken..."
+    sleep 30
+    
+    echo_status "Stelle Ethernet-Verbindung her..."
+    sudo nmcli connection delete "Wired connection 1" 2>/dev/null || true
+    sudo nmcli connection add type ethernet ifname eth0 con-name "Wired connection 1" \
+         ipv4.method auto ipv6.method ignore
+    sudo nmcli connection up "Wired connection 1"
+    
+    check_internet
+    return $?
+}
 
-# sudo journalctl -u switch_monitor.service -f
+# Funktion für WiFi-Update
+setup_wifi() {
+    echo_status "Stoppe Hotspot-Service..."
+    sudo systemctl stop hotspot.service
+    
+    echo_status "Scanne nach WLAN-Netzwerken..."
+    sudo nmcli device wifi rescan
+    
+    # Zeige verfügbare Netzwerke
+    echo_status "Verfügbare Netzwerke:"
+    sudo nmcli device wifi list
+    
+    # Frage nach WLAN-Daten
+    echo -n "WLAN-Name (SSID): "
+    read SSID
+    echo -n "WLAN-Passwort: "
+    read -s PASSWORD
+    echo
+    
+    echo_status "Verbinde mit WLAN..."
+    sudo nmcli device wifi connect "$SSID" password "$PASSWORD"
+    
+    check_internet
+    return $?
+}
 
-./setup/dev_tools/update.sh
-echo "Update.sh durchgeführt"
+# Funktion für das eigentliche Update
+perform_update() {
+    echo_status "Hole Updates von GitHub..."
+    git fetch origin
+    git reset --hard origin/raspberrypi
+    
+    echo_status "Führe update.sh aus..."
+    chmod +x setup/dev_tools/update.sh
+    ./setup/dev_tools/update.sh
+}
 
-echo -e "\033[31m Bitte wieder an den Switch anschließen! \033[0m"
-sleep 10
-echo -e "\033[1;32m switch_monitor Service neu gestartet durch update.sh \033[0m"
-sleep 10
-sudo systemctl status switch_monitor.service --no-pager
-sleep 2
-sudo journalctl -b -u switch_monitor.service --no-pager --since -10m
+# Funktion für die Wiederherstellung
+restore_connection() {
+    echo_warning "Stelle ursprüngliche Verbindung wieder her..."
+    echo_warning "Sie haben 30 Sekunden zum Umstecken/Verbinden..."
+    sudo systemctl restart NetworkManager.service
+    sudo systemctl start hotspot.service
+    sleep 30
+    
+    echo_status "Starte switch_monitor neu..."
+    sudo systemctl restart switch_monitor.service
+    sleep 5
+    
+    # Zeige Status
+    echo_status "Status des switch_monitor Service:"
+    sudo systemctl status switch_monitor.service --no-pager
+    
+    echo_status "Letzte Logs:"
+    sudo journalctl -b -u switch_monitor.service --no-pager --since -10m
+}
+
+# Hauptprogramm
+main() {
+    # Menü anzeigen
+    echo "Bitte Updatemethod wählen:"
+    echo "1) Ethernet (Internet-Kabel umstecken)"
+    echo "2) WLAN (Hotspot wird kurzzeitig deaktiviert)"
+    echo "Q) Abbrechen"
+    
+    read -p "Auswahl (1/2/Q): " choice
+    
+    case $choice in
+        1)
+            if setup_ethernet; then
+                perform_update
+                restore_connection
+            fi
+            ;;
+        2)
+            if setup_wifi; then
+                perform_update
+                restore_connection
+            fi
+            ;;
+        [Qq])
+            echo_status "Update abgebrochen"
+            exit 0
+            ;;
+        *)
+            echo_error "Ungültige Auswahl"
+            exit 1
+            ;;
+    esac
+}
+
+# Skript ausführen
+main

@@ -1,161 +1,241 @@
 ##services/led.py##
 import time
-from typing import List, Tuple, Dict, Optional, Callable
+from typing import List, Tuple, Dict, Optional
 from rpi_ws281x import PixelStrip, Color, ws
 import logging
-from .config import Config
+import threading
+from .utils import ColorSystem
 
 logger = logging.getLogger(__name__)
 
 class LEDService:
-    def __init__(self, config: Config):
+    """Thread-safe LED control service"""
+    def __init__(self, config):
         self.config = config
-        self.strip = self._initialize_strip()
+        self._strip = self._initialize_strip()
+        self._lock = threading.Lock()
+        self._last_colors = []  # Cache last colors to prevent unnecessary updates
 
     def _initialize_strip(self) -> PixelStrip:
-        strip = PixelStrip(
-            self.config.led_count,
-            self.config.led_pin,
-            800000,
-            10,
-            False,
-            self.config.led_brightness,
-            0,
-            ws.WS2812_STRIP
-        )
-        strip.begin()
-        return strip
-    
+        """Initialize LED strip with config values"""
+        try:
+            strip = PixelStrip(
+                self.config.led_count,
+                self.config.led_pin,
+                800000,  # Standard frequency
+                10,     # DMA channel
+                False,  # Invert signal
+                self.config.led_brightness,
+                0,      # Channel
+                ws.WS2812_STRIP
+            )
+            strip.begin()
+            self._last_colors = [(0,0,0)] * self.config.led_count
+            return strip
+        except Exception as e:
+            logger.error(f"Failed to initialize LED strip: {e}")
+            raise
+
+    def _set_pixel_color(self, index: int, color: Tuple[int, int, int]):
+        """Set LED color with change detection"""
+        if 0 <= index < self.config.led_count:
+            if self._last_colors[index] != color:
+                self._strip.setPixelColor(index, Color(*color))
+                self._last_colors[index] = color
+
     def all_black(self):
-        for i in range(self.config.led_count):
-            self.strip.setPixelColor(i, Color(0,0,0))
-        self.strip.show()
+        """Turn all LEDs off"""
+        with self._lock:
+            try:
+                black = (0,0,0)
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, black)
+                self._strip.show()
+            except Exception as e:
+                logger.error(f"Error turning LEDs off: {e}")
 
     def show_progress(self, progress: int):
         """Show progress bar in white LEDs"""
-        for i in range(self.config.led_count):
-            self.strip.setPixelColor(i, Color(255,255,255) if i < progress else 0)
-        self.strip.show()
+        with self._lock:
+            try:
+                white = (255,255,255)
+                black = (0,0,0)
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, white if i < progress else black)
+                self._strip.show()
+            except Exception as e:
+                logger.error(f"Error showing progress: {e}")
 
     def show_status(self, success: bool, duration: float = 2.0):
         """Show success/failure status"""
-        color = Color(0,0,255) if success else Color(255,0,255)
-        for i in range(self.config.led_count):
-            self.strip.setPixelColor(i, color if i < self.config.port_count else 0)
-        self.strip.show()
-        time.sleep(duration)
+        with self._lock:
+            try:
+                color = ColorSystem.VLAN_DEFAULTS[1] if success else (255,0,255)
+                black = (0,0,0)
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, color if i < self.config.port_count else black)
+                self._strip.show()
+                time.sleep(duration)
+            except Exception as e:
+                logger.error(f"Error showing status: {e}")
 
     def update_port_leds(self, port_led_map: Dict[int, List[int]], 
-                        port_info: Dict[int, Dict], blink_states: dict):
+                        port_info: Dict[int, Dict], 
+                        blink_states: dict):
         """Update LEDs based on port status"""
-        for port_id, leds in port_led_map.items():
-            info = port_info.get(port_id, {})
-            if not info:
-                continue
+        with self._lock:
+            try:
+                # Reset all LEDs not used by ports to black
+                used_leds = set()
+                for leds in port_led_map.values():
+                    used_leds.update(leds)
+                
+                for i in range(self.config.led_count):
+                    if i not in used_leds:
+                        self._set_pixel_color(i, (0,0,0))
 
-            vlan_color = info.get("vlan_color", (0,0,255))
-            speed = info.get("speed", 0)
-            poe = info.get("poe_active", False)
+                # Update port LEDs
+                for port_id, leds in port_led_map.items():
+                    info = port_info.get(port_id, {})
+                    if not info:
+                        continue
 
-            self._update_single_port_leds(
-                leds, vlan_color, speed, poe, 
-                blink_states['blink_on'], blink_states['phase']
-            )
+                    self._update_single_port_leds(
+                        leds,
+                        info.get("vlan_color", ColorSystem.VLAN_DEFAULTS[1]),
+                        info.get("speed", 0),
+                        info.get("speed_color", ColorSystem.SPEED_COLORS[0]),
+                        info.get("poe_active", False),
+                        blink_states['blink_on'],
+                        blink_states['phase']
+                    )
 
-        self.strip.show()
+                self._strip.show()
+            except Exception as e:
+                logger.error(f"Error updating port LEDs: {e}")
 
     def _update_single_port_leds(
-        self, leds: List[int], vlan_color: Tuple[int, int, int], 
-        speed: int, poe: bool, blink_on: bool, phase: int
+        self, leds: List[int], 
+        vlan_color: Tuple[int, int, int],
+        speed: int,
+        speed_color: Tuple[int, int, int],
+        poe: bool,
+        blink_on: bool,
+        phase: int
     ):
-        """Update LEDs for a single port based on configured leds_per_port"""
+        """Update LEDs for a single port"""
         if not self.config.port_stats:
-            # If no port stats, show only VLAN color
-            for led_idx in leds:
-                if 0 <= led_idx < self.config.led_count:
-                    self.strip.setPixelColor(led_idx, Color(*vlan_color))
+            self._set_simple_vlan_color(leds, vlan_color)
             return
 
-        # Check configured mode instead of actual LED list length
         configured_leds_per_port = self.config.get('leds_per_port', 1)
-        
+
         if configured_leds_per_port >= 2:
-            # Multi-LED Mode
-            
-            # All LEDs except last show VLAN color
-            for led_idx in leds[:-1]:
-                if 0 <= led_idx < self.config.led_count:
-                    self.strip.setPixelColor(led_idx, Color(*vlan_color))
-            
-            # Last LED: POE/Speed indication
-            if leds and 0 <= leds[-1] < self.config.led_count:
-                last_led = leds[-1]
-                if speed == 0:
-                    # No link - LED stays black
-                    self.strip.setPixelColor(last_led, Color(0,0,0))
-                elif poe:
-                    # POE active: alternate between POE and Speed
-                    if phase % 2 == 0:
-                        self.strip.setPixelColor(last_led, Color(0,0,255))  # POE Blue
-                    else:
-                        # Speed blink sub-phase
-                        self.strip.setPixelColor(last_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
-                else:
-                    # Just speed blinking, no alternation
-                    self.strip.setPixelColor(last_led, 
-                        self._get_speed_color(speed) if blink_on else Color(0,0,0))
-
+            self._update_multi_led_mode(
+                leds, vlan_color, speed, speed_color, poe, blink_on, phase
+            )
         else:
-            # Single LED Mode
-            if leds and 0 <= leds[0] < self.config.led_count:
-                first_led = leds[0]
-                
-                if speed == 0:
-                    # No connection - show VLAN color
-                    self.strip.setPixelColor(first_led, Color(*vlan_color))
-                elif poe:
-                    # POE active - 3-way cycle
-                    cycle_position = phase % 3
-                    if cycle_position == 0:
-                        self.strip.setPixelColor(first_led, Color(*vlan_color))
-                    elif cycle_position == 1:
-                        self.strip.setPixelColor(first_led, Color(0,0,255))  # POE
-                    else:
-                        self.strip.setPixelColor(first_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
-                else:
-                    # Just connection - alternate VLAN and speed
-                    if phase % 2 == 0:
-                        self.strip.setPixelColor(first_led, Color(*vlan_color))
-                    else:
-                        self.strip.setPixelColor(first_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
+            self._update_single_led_mode(
+                leds, vlan_color, speed, speed_color, poe, blink_on, phase
+            )
 
-    def _get_speed_color(self, speed: int) -> int:
-        """Get LED color based on port speed"""
-        if speed == 5:
-            return Color(0,255,0)      # Gigabit: Green
-        elif speed == 4:
-            return Color(255,165,0)    # 100MBit: Orange
-        return Color(0,0,0)           # No Link: Black
+    def _set_simple_vlan_color(self, leds: List[int], vlan_color: Tuple[int, int, int]):
+        """Set basic VLAN color for port LEDs"""
+        for led_idx in leds:
+            self._set_pixel_color(led_idx, vlan_color)
+
+    def _update_multi_led_mode(
+        self, leds: List[int],
+        vlan_color: Tuple[int, int, int],
+        speed: int,
+        speed_color: Tuple[int, int, int],
+        poe: bool,
+        blink_on: bool,
+        phase: int
+    ):
+        """Update port in multi-LED mode"""
+        # VLAN color on all LEDs except last
+        for led_idx in leds[:-1]:
+            self._set_pixel_color(led_idx, vlan_color)
+
+        # Last LED: POE/Speed indication
+        if leds:
+            last_led = leds[-1]
+            if speed == 0:
+                self._set_pixel_color(last_led, (0,0,0))
+            elif poe:
+                if phase % 2 == 0:
+                    self._set_pixel_color(last_led, (0,0,255))  # POE indicator
+                else:
+                    self._set_pixel_color(
+                        last_led, 
+                        speed_color if blink_on else (0,0,0)
+                    )
+            else:
+                self._set_pixel_color(
+                    last_led,
+                    speed_color if blink_on else (0,0,0)
+                )
+
+    def _update_single_led_mode(
+        self, leds: List[int],
+        vlan_color: Tuple[int, int, int],
+        speed: int,
+        speed_color: Tuple[int, int, int],
+        poe: bool,
+        blink_on: bool,
+        phase: int
+    ):
+        """Update port in single-LED mode"""
+        if not leds:
+            return
+
+        first_led = leds[0]
+        if speed == 0:
+            self._set_pixel_color(first_led, vlan_color)
+        elif poe:
+            cycle_position = phase % 3
+            if cycle_position == 0:
+                self._set_pixel_color(first_led, vlan_color)
+            elif cycle_position == 1:
+                self._set_pixel_color(first_led, (0,0,255))  # POE indicator
+            else:
+                self._set_pixel_color(
+                    first_led,
+                    speed_color if blink_on else (0,0,0)
+                )
+        else:
+            if phase % 2 == 0:
+                self._set_pixel_color(first_led, vlan_color)
+            else:
+                self._set_pixel_color(
+                    first_led,
+                    speed_color if blink_on else (0,0,0)
+                )
 
     def cleanup(self):
         """Clean shutdown sequence"""
-        # All red
-        for i in range(self.config.led_count):
-            self.strip.setPixelColor(i, Color(255,0,0))
-        self.strip.show()
-        time.sleep(1)
-        
-        # Count up in white
-        for i in range(10):
-            if i < self.config.led_count:
-                self.strip.setPixelColor(i, Color(255,255,255))
-            self.strip.show()
-            time.sleep(1)
-            
-        # All off
-        for i in range(self.config.led_count):
-            self.strip.setPixelColor(i, Color(0,0,0))
-        self.strip.show()
+        with self._lock:
+            try:
+                # All red
+                red = (255,0,0)
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, red)
+                self._strip.show()
+                time.sleep(1)
+
+                # Count up in white
+                white = (255,255,255)
+                for i in range(10):
+                    if i < self.config.led_count:
+                        self._set_pixel_color(i, white)
+                    self._strip.show()
+                    time.sleep(0.2)
+
+                # All off
+                black = (0,0,0)
+                for i in range(self.config.led_count):
+                    self._set_pixel_color(i, black)
+                self._strip.show()
+            except Exception as e:
+                logger.error(f"Error during LED cleanup: {e}")

@@ -19,22 +19,6 @@ Script for VLAN-ID LED Feedback for Netgear AV-Line Switches
 - ./setup/setup.sh
 - if you need to change any settings in config.json just run ./setup/dev_tools/update.sh afterwards
 
-**ToDos**
-- tidy up
-- add poe-status functionality
-- add link-status functionality
-- add functionality to retrieve vlans and colors out of cfg file
-- add web-gui
-    - random wifi ap
-    - show ports with vlan, poe and link status
-    - if multiple switches are found switch-selector
-    - password-protected vlan changing
-    - password-protected save and reboot
-    - password-protected cfg file uploader
-    - logs
-- test on pi zero
-- port to esp32
-
 
     utils.py port mapping generator:
     Generates a dict {port_id: [ledIndices]} based on the chosen mode:
