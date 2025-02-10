@@ -251,6 +251,7 @@ class SwitchMonitor:
     def run(self):
         """Main run sequence with error handling"""
         try:
+            time.sleep(0.5)
             self.led_service.show_progress(1)
 
             # Scan for switch if enabled
@@ -301,6 +302,7 @@ class ServiceManager:
     """Manages all application services"""
     def __init__(self):
         self.config = Config()
+        self.led_service = LEDService(self.config)
         self.hotspot_service = HotspotService()
         self.switch_monitor = SwitchMonitor()
         self.web_service = WebService(self.switch_monitor, self.hotspot_service)
