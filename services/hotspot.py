@@ -8,7 +8,7 @@ import sys
 import logging
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from .config import Config
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,15 @@ class HotspotService:
         self.retry_count = 0
         self.max_retries = 3
         self._should_stop = False
+        self.active = False
         
+    def _generate_ssid(self) -> str:
+        """Generate a unique SSID for the hotspot"""
+        base_name = self.config.get('hotspot_ssid_prefix', 'NETGEAR-CONFIG')
+        # Add random suffix to make it unique
+        suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        return f"{base_name}-{suffix}"
+
     def check_dependencies(self) -> bool:
         """Check if required packages are installed"""
         try:
@@ -75,6 +83,44 @@ address=/www.msftconnecttest.com/192.168.0.1"""
             return True
         except Exception as e:
             logger.error(f"Error configuring dnsmasq: {e}")
+            return False
+
+    def _build_network_commands(self) -> List[List[str]]:
+        """Build NetworkManager commands for hotspot setup"""
+        return [
+            ["sudo", "nmcli", "connection", "delete", self.connection_name],
+            [
+                "sudo", "nmcli", "connection", "add",
+                "type", "wifi",
+                "ifname", "wlan0",
+                "con-name", self.connection_name,
+                "autoconnect", "yes",
+                "save", "yes",
+                "mode", "ap",
+                "ssid", self.ssid
+            ],
+            [
+                "sudo", "nmcli", "connection", "modify", self.connection_name,
+                "802-11-wireless.band", "bg",
+                "ipv4.method", "manual",
+                "ipv4.addresses", "192.168.0.1/24"
+            ]
+        ]
+
+    def setup_iptables(self) -> bool:
+        """Setup iptables rules for NAT"""
+        try:
+            rules = [
+                ["sudo", "iptables", "-t", "nat", "-A", "POSTROUTING", "-o", "eth0", "-j", "MASQUERADE"],
+                ["sudo", "iptables", "-A", "FORWARD", "-i", "eth0", "-o", "wlan0", "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"],
+                ["sudo", "iptables", "-A", "FORWARD", "-i", "wlan0", "-o", "eth0", "-j", "ACCEPT"]
+            ]
+            
+            for rule in rules:
+                subprocess.run(rule, check=True)
+            return True
+        except Exception as e:
+            logger.error(f"Error setting up iptables: {e}")
             return False
 
     def setup_hotspot(self) -> bool:
@@ -158,6 +204,7 @@ address=/www.msftconnecttest.com/192.168.0.1"""
 
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             self.retry_count = 0
+            self.active = True
             return True
 
         except subprocess.TimeoutExpired:
@@ -170,6 +217,18 @@ address=/www.msftconnecttest.com/192.168.0.1"""
             return False
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
+            return False
+
+    def get_status(self) -> bool:
+        """Check if hotspot is running"""
+        try:
+            result = subprocess.run(
+                ["nmcli", "connection", "show", "--active"],
+                capture_output=True,
+                text=True
+            )
+            return self.connection_name in result.stdout
+        except Exception:
             return False
 
     def cleanup(self) -> bool:
