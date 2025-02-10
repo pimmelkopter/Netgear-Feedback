@@ -2,6 +2,8 @@
 import time
 from typing import List, Tuple, Dict, Optional
 from rpi_ws281x import PixelStrip, Color, ws
+import neopixel
+import board
 import logging
 import threading
 from .utils import ColorSystem
@@ -33,74 +35,49 @@ class LEDService:
                 raise ValueError(f"Invalid LED count: {self.config.led_count}")
 
             # Initialize strip
-            try:
-                import board
-                import neopixel
-                self._strip = neopixel.NeoPixel(
-                    getattr(board, f"D{self.config.led_pin}"),
-                    self.config.led_count,
-                    brightness=self.config.led_brightness / 255.0,
-                    auto_write=False
-                )
-                logger.info("Using NeoPixel library for LED control")
-            except ImportError:
-                # Fallback to rpi_ws281x
-                self._strip = PixelStrip(
-                    self.config.led_count,
-                    self.config.led_pin,
-                    800000,
-                    10,
-                    False,
-                    self.config.led_brightness,
-                    0,
-                    ws.WS2812_STRIP
-                )
-                self._strip.begin()
-                logger.info("Using rpi_ws281x library for LED control")
+            self._strip = PixelStrip(
+                self.config.led_count,
+                self.config.led_pin,
+                800000,
+                10,
+                False,
+                self.config.led_brightness,
+                0,
+                ws.WS2812_STRIP
+            )
+            self._strip.begin()
+            logger.info("Using rpi_ws281x library for LED control")
             
             # Initialize last colors array
             self._last_colors = [(0,0,0)] * self.config.led_count
             
-            # Test strip by setting all LEDs to off
-            logger.info("Testing LED strip...")
-            self.test_pattern()
+            # Quick LED test - non-blocking
+            self._quick_test()
             
         except Exception as e:
             logger.error(f"Failed to initialize LED strip: {e}")
-            # Set strip to None to indicate initialization failure
             self._strip = None
             raise
 
-    def test_pattern(self):
-        """Run a simple test pattern to verify LED functionality"""
+    def _quick_test(self):
+        """Run a quick LED test without blocking"""
         if not self._strip:
             return
+            
         with self._lock:
             try:
-                # All red
-                for i in range(self.config.led_count):
-                    self._set_pixel_color(i, (255,0,0))
-                self._strip.show()
-                time.sleep(0.5)
-                
-                # All green
-                for i in range(self.config.led_count):
-                    self._set_pixel_color(i, (0,255,0))
-                self._strip.show()
-                time.sleep(0.5)
-                
-                # All blue
+                # Flash blue briefly
                 for i in range(self.config.led_count):
                     self._set_pixel_color(i, (0,0,255))
                 self._strip.show()
-                time.sleep(0.5)
+                time.sleep(0.1)  # Very short delay
                 
-                # All off
+                # Then turn off
                 self.all_black()
+                logger.info("LED test completed")
                 
-                logger.info("LED test pattern completed successfully")
             except Exception as e:
-                logger.error(f"Error during LED test pattern: {e}")
+                logger.error(f"Error during LED test: {e}")
 
     def _set_pixel_color(self, index: int, color: tuple) -> None:
         """Set LED color with bounds checking"""
@@ -330,5 +307,6 @@ class LEDService:
 
                 # All off
                 self.all_black()
+                logger.info("LED cleanup completed")
             except Exception as e:
                 logger.error(f"Error during LED cleanup: {e}")
