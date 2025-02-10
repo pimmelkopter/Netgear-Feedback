@@ -36,7 +36,7 @@ bogus-priv
 dhcp-range=192.168.0.50,192.168.0.150,12h
 dhcp-option=3,192.168.0.1
 dhcp-option=6,192.168.0.1
-address=/#/192.168.0.1
+address=/#/192.168.0.1:5000
 """
         with open(self.dnsmasq_conf_path, 'w') as f:
             f.write(config)
