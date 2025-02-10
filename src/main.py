@@ -4,6 +4,7 @@ import sys
 import urllib3
 import logging
 import threading
+from queue import Queue
 from typing import Dict, Any
 from services.config import Config
 from services.hotspot import HotspotService
@@ -28,15 +29,70 @@ logger = logging.getLogger(__name__)
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+class PortCache:
+    """Simple thread-safe cache for port information"""
+    def __init__(self):
+        self._cache = {}
+        self._ready = threading.Event()
+        
+    def update(self, new_data):
+        """Update cache with new port data"""
+        self._cache = new_data.copy()
+        self._ready.set()  # Signal that initial data is available
+        
+    def get(self):
+        """Get current cache contents"""
+        return self._cache.copy()
+        
+    def wait_ready(self, timeout=None):
+        """Wait until cache has initial data"""
+        return self._ready.wait(timeout)
+
 class SwitchMonitor:
     def __init__(self):
         """Initialize monitor with configuration and services"""
         self.config = Config()
         self.led_service = LEDService(self.config)
         self.api = None
-        self.port_info_cache: Dict[int, Dict[str, Any]] = {}
+        self.port_cache = PortCache()
         self.running = True
         self._start_time = time
+        self._led_thread = None
+
+    def _led_update_loop(self):
+        """Dedicated LED update loop"""
+        port_led_map = parse_port_led_mapping(self.config)
+        last_led_update = 0
+        LED_UPDATE_INTERVAL = 0.1
+
+        # Wait for initial port data
+        if not self.port_cache.wait_ready(timeout=30):
+            logger.error("Timeout waiting for initial port data")
+            return
+
+        while self.running:
+            current_time = time.time()
+            
+            if current_time - last_led_update >= LED_UPDATE_INTERVAL:
+                try:
+                    # Get current port info from cache
+                    port_info = self.port_cache.get()
+                    
+                    # Calculate blink states
+                    blink_states = calculate_blink_states()
+                    
+                    # Update LEDs
+                    self.led_service.update_port_leds(
+                        port_led_map, 
+                        port_info, 
+                        blink_states
+                    )
+                    last_led_update = current_time
+                except Exception as e:
+                    logger.error(f"Error updating LEDs: {e}")
+            
+            # Small sleep to prevent CPU hogging
+            time.sleep(0.01)
 
     def scan_network(self) -> bool:
         """Scan network for switch with visual progress"""
@@ -123,6 +179,7 @@ class SwitchMonitor:
                 
             color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
             
+            new_cache = {}
             for port_data in stats:
                 port_id = port_data.get("portId", 0)
                 if not 1 <= port_id <= self.config.port_count:
@@ -133,12 +190,15 @@ class SwitchMonitor:
                 vlan_id = port_data.get("portVlanId", 1)
                 
                 # Update cache with status and color
-                self.port_info_cache[port_id] = {
+                new_cache[port_id] = {
                     "speed": speed,
                     "poe_active": port_data.get("poeStatus", 0) >= 2,
                     "vlan_id": vlan_id,
                     "vlan_color": self._get_vlan_color(vlan_id, color_map)
                 }
+            
+            # Update cache atomically
+            self.port_cache.update(new_cache)
                 
         except Exception as e:
             logger.error(f"Error updating port info: {e}")
@@ -160,10 +220,14 @@ class SwitchMonitor:
 
     def main_loop(self):
         """Main monitoring loop"""
-        port_led_map = parse_port_led_mapping(self.config)
         last_update = 0
-        last_led_update = 0  # Initialize last_led_update
-        LED_UPDATE_INTERVAL = 0.1
+        
+        # Start LED update thread
+        self._led_thread = threading.Thread(
+            target=self._led_update_loop,
+            daemon=True
+        )
+        self._led_thread.start()
         
         while self.running:
             current_time = time.time()
@@ -176,24 +240,8 @@ class SwitchMonitor:
                 except Exception as e:
                     logger.error(f"Error updating port info: {e}")
             
-            # Update LEDs at fixed interval
-            if current_time - last_led_update >= LED_UPDATE_INTERVAL:
-                try:
-                    # Calculate blink states
-                    blink_states = calculate_blink_states()
-                    
-                    # Update LEDs
-                    self.led_service.update_port_leds(
-                        port_led_map, 
-                        self.port_info_cache, 
-                        blink_states
-                    )
-                    last_led_update = current_time
-                except Exception as e:
-                    logger.error(f"Error updating LEDs: {e}")
-            
-            # Small sleep to prevent CPU hogging, but not too long to affect LED smoothness
-            time.sleep(0.01)  # 10ms sleep
+            # Sleep to prevent CPU hogging
+            time.sleep(0.1)  # Longer sleep is fine here since we're just updating cache
 
     def is_connected(self) -> bool:
         """Check if switch is connected"""
@@ -214,6 +262,7 @@ class SwitchMonitor:
         """Clean shutdown sequence"""
         logger.error("Critical error => shutting down")
         self.running = False
+        # LED thread will stop automatically since it's a daemon thread
         self.led_service.cleanup()
         sys.exit(1)
 
@@ -245,8 +294,8 @@ class SwitchMonitor:
             # Clear ALL LEDs before starting normal operation
             self.led_service.all_black()
 
-            # Initialize port info cache
-            self.port_info_cache = {
+            # Initialize port info cache with defaults
+            initial_cache = {
                 pid: {
                     "speed": 0,
                     "poe_active": False,
@@ -255,6 +304,7 @@ class SwitchMonitor:
                 }
                 for pid in range(1, self.config.port_count + 1)
             }
+            self.port_cache.update(initial_cache)
 
             # Start main monitoring loop
             self.main_loop()
