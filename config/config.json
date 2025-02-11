@@ -28,8 +28,8 @@
 
   "led_pin": 18,
   "scan_base": "10.18.254",
-  "scan_range_start": 145,
-  "scan_range_end": 160,
+  "scan_range_start": 100,
+  "scan_range_end": 250,
   "led_count": 130,
   "led_brightness": 10,
   "update_interval": 5,

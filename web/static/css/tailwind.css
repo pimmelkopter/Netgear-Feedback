@@ -1,60 +1,129 @@
-/* Tailwind-Basis-Direktiven */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Komponenten-Styles */
+/* Custom component styles */
 @layer components {
-    /* Port-Button-Zustände */
+    /* Port button states */
     .port-button {
-        @apply transition-all duration-200 ease-in-out;
+        @apply relative transition-all duration-200 ease-in-out border border-transparent;
     }
 
-    .port-button.selected, 
-    .vlan-button.selected {
+    .port-button:hover {
+        @apply shadow-lg transform scale-105;
+    }
+
+    .port-button.selected {
         @apply ring-2 ring-black transform scale-105;
     }
 
     .port-button.pending-change {
-        @apply ring-2 ring-red-500 !important;
+        @apply ring-2 ring-red-500;
     }
 
-    /* VLAN-Button-Zustände */
+    .port-button.failed {
+        @apply ring-2 ring-red-600 ring-opacity-50;
+    }
+
+    /* VLAN button states */
     .vlan-button {
-        @apply transition-all duration-200 ease-in-out
-               hover:shadow-lg hover:scale-102;
+        @apply relative transition-all duration-200 ease-in-out border border-transparent;
     }
 
-    /* Interaktionszustände */
-    .disabled {
-        @apply opacity-50 cursor-not-allowed;
+    .vlan-button:hover {
+        @apply shadow-lg transform scale-105;
     }
 
+    .vlan-button.selected {
+        @apply ring-2 ring-black transform scale-105;
+    }
+
+    /* Loading states */
     .loading {
         @apply relative pointer-events-none;
     }
 
     .loading::after {
-        @apply content-[''] absolute inset-0 
-               bg-white/70 rounded-md;
+        content: '';
+        @apply absolute inset-0 bg-white bg-opacity-70 rounded-md;
+    }
+
+    /* Status badges */
+    .status-badge {
+        @apply px-3 py-1 rounded-full font-semibold text-sm;
+    }
+
+    .status-badge.connected {
+        @apply bg-green-500 text-white;
+    }
+
+    .status-badge.disconnected {
+        @apply bg-red-500 text-white;
+    }
+
+    /* Action buttons */
+    .action-button {
+        @apply px-4 py-2 rounded-lg transition-colors duration-200 font-medium text-white;
+    }
+
+    .action-button.apply {
+        @apply bg-green-500 hover:bg-green-600 disabled:opacity-50;
+    }
+
+    .action-button.cancel {
+        @apply bg-gray-500 hover:bg-gray-600 disabled:opacity-50;
+    }
+
+    /* Form elements */
+    .input-field {
+        @apply appearance-none rounded-md relative block w-full px-3 py-2 border 
+               border-gray-300 placeholder-gray-500 text-gray-900 
+               focus:outline-none focus:ring-indigo-500 focus:border-indigo-500;
+    }
+
+    .submit-button {
+        @apply w-full flex justify-center py-2 px-4 border border-transparent 
+               rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 
+               hover:bg-indigo-700 focus:outline-none focus:ring-2 
+               focus:ring-offset-2 focus:ring-indigo-500;
     }
 }
 
-/* Utility-Klassen für häufig verwendete Kombinationen */
+/* Custom utility classes */
 @layer utilities {
     .pending-text {
         @apply text-red-600 !important;
     }
 
-    .status-success {
-        @apply text-green-600 font-semibold;
+    .text-balance {
+        text-wrap: balance;
     }
 
-    .status-error {
-        @apply text-red-600 font-semibold;
+    .grid-auto-fit {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
+}
 
-    .status-warning {
-        @apply text-yellow-600 font-semibold;
+/* Animation keyframes */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .port-button, .vlan-button {
+        @apply text-sm;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .loading::after {
+        @apply bg-gray-900 bg-opacity-70;
     }
 }

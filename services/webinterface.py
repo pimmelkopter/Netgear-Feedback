@@ -35,6 +35,7 @@ class WebService:
         
         app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+        app.config['TEMPLATES_AUTO_RELOAD'] = True
         
         self._register_routes(app)
         return app
@@ -62,6 +63,7 @@ class WebService:
                 jwt.decode(token, self.app.config['SECRET_KEY'], algorithms=["HS256"])
                 return f(*args, **kwargs)
             except jwt.InvalidTokenError:
+                session.clear()
                 return redirect(url_for('login'))
         return decorated
 
@@ -75,7 +77,7 @@ class WebService:
                 port_vlans = self._get_port_vlans()
                 vlan_colors, vlan_names = self._get_vlan_info()
                 
-                # Prüfe Switch-Verbindung
+                # Check switch connection
                 switch_connected = False
                 try:
                     api = self._get_switch_api()
@@ -96,21 +98,38 @@ class WebService:
         @app.route('/login', methods=['GET', 'POST'])
         def login():
             if request.method == 'GET':
+                if session.get('token'):
+                    try:
+                        jwt.decode(session['token'], self.app.config['SECRET_KEY'], algorithms=["HS256"])
+                        return redirect(url_for('index'))
+                    except jwt.InvalidTokenError:
+                        session.clear()
                 return render_template('index.html', show_login=True)
                 
-            username, password = self._get_credentials()
+            username = request.form.get('username')
+            password = request.form.get('password')
+            
             if not username or not password:
                 return render_template('index.html', 
                     show_login=True, 
                     error="Missing credentials")
                 
             if self._validate_credentials(username, password):
-                session['token'] = self._generate_token(username)
-                return redirect(url_for('index'))
+                session.permanent = True
+                token = self._generate_token(username)
+                session['token'] = token
+                response = redirect(url_for('index'))
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                return response
                 
             return render_template('index.html', 
                 show_login=True, 
                 error="Invalid credentials")
+
+        @app.route('/logout')
+        def logout():
+            session.clear()
+            return redirect(url_for('login'))
 
         @app.route('/api/status')
         @self.login_required
@@ -127,8 +146,7 @@ class WebService:
                 return jsonify({
                     'switch_connected': switch_connected,
                     'hotspot_active': self.hotspot_service.is_active(),
-                    'switch_connected': self.switch_monitor.is_connected(),
-                    'uptime': self.switch_monitor.get_uptime()
+                    'uptime': time.time() - self.switch_monitor._start_time
                 })
             except Exception as e:
                 logger.error(f"Error getting status: {e}")
@@ -180,6 +198,27 @@ class WebService:
                 return jsonify({
                     'status': 'error',
                     'message': 'Internal server error'
+                }), 500
+            
+        @app.route('/api/refresh', methods=['POST'])
+        @self.login_required
+        def refresh_data():
+            try:
+                self._invalidate_cache()
+                port_vlans = self._get_port_vlans()
+                vlan_colors, vlan_names = self._get_vlan_info()
+                
+                return jsonify({
+                    'status': 'success',
+                    'port_vlans': port_vlans,
+                    'vlan_colors': vlan_colors,
+                    'vlan_names': vlan_names
+                })
+            except Exception as e:
+                logger.error(f"Error refreshing data: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e)
                 }), 500
 
     def _get_credentials(self) -> Tuple[Optional[str], Optional[str]]:

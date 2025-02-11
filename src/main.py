@@ -56,7 +56,7 @@ class SwitchMonitor:
         self.api = None
         self.port_cache = PortCache()
         self.running = True
-        self._start_time = time
+        self._start_time = time.time()  # Fix: Use time.time() instead of time module
         self._led_thread = None
 
     def _led_update_loop(self):
