@@ -204,7 +204,15 @@ class SwitchAPI:
     def reboot_switch(self) -> bool:
         try:
             url = f"{self.base_url}/device_reboot"
-            response = self.session.post(url, timeout=15)
+            response = self.session.post(
+                url, 
+                json={
+                    "deviceReboot": {
+                        "afterSecs": 2
+                    }
+                }, 
+                timeout=15
+            )
             self._handle_response(response)
             logger.info("Device Reboot")
             return True
