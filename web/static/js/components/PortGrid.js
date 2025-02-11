@@ -1,7 +1,4 @@
-// static/js/components/PortGrid.js
-import { store } from '../store.js';
-import { SwitchAPI } from '../api.js';
-export class PortGrid extends HTMLElement {
+class PortGrid extends HTMLElement {
     constructor() {
         super();
         this.state = {
@@ -10,58 +7,12 @@ export class PortGrid extends HTMLElement {
         };
     }
 
-    async connectedCallback() {
-        // Subscribe to store before initial render
+    connectedCallback() {
         store.subscribe(state => {
             this.state.selectedVlan = state.selectedVlan;
             this.state.pendingChanges = state.pendingChanges;
             this.render();
         });
-
-        await this.loadData();
-        this.addEventListeners();
-        // Initial polling setup with error handling
-        this.setupPolling();
-    }
-
-    setupPolling() {
-        setInterval(async () => {
-            try {
-                await this.loadData();
-            } catch (error) {
-                console.error('Polling error:', error);
-                // Handle error state if needed
-            }
-        }, 5000);
-    }
-
-    async loadData() {
-        try {
-            this.classList.add('loading');
-            const api = new SwitchAPI();
-            const data = await api.fetchPorts();
-            
-            if (data.status === 'success') {
-                store.setState({
-                    ports: data.port_vlans,
-                    vlanColors: data.vlan_colors,
-                    vlans: data.vlan_names
-                });
-            }
-        } catch (error) {
-            console.error('Failed to load port data:', error);
-            this.showError('Failed to load port data');
-        } finally {
-            this.classList.remove('loading');
-        }
-    }
-
-    showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message bg-red-100 text-red-700 p-4 rounded-lg mb-4';
-        errorDiv.textContent = message;
-        this.insertAdjacentElement('beforebegin', errorDiv);
-        setTimeout(() => errorDiv.remove(), 5000);
     }
 
     handlePortClick(portId) {
@@ -80,6 +31,11 @@ export class PortGrid extends HTMLElement {
     render() {
         const { ports, vlanColors, vlans } = store.state;
         
+        if (!ports || Object.keys(ports).length === 0) {
+            this.innerHTML = '<div class="text-center p-4">Loading ports...</div>';
+            return;
+        }
+        
         this.innerHTML = `
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 class="text-xl font-semibold mb-4">Ports</h2>
@@ -87,7 +43,7 @@ export class PortGrid extends HTMLElement {
                     ${Object.entries(ports).map(([portId, vlanId]) => {
                         const isPending = this.state.pendingChanges.has(Number(portId));
                         const displayVlanId = isPending ? this.state.pendingChanges.get(Number(portId)) : vlanId;
-                        const backgroundColor = vlanColors[displayVlanId];
+                        const backgroundColor = vlanColors[displayVlanId] || '#ffffff';
                         const vlanName = vlans[displayVlanId] || `VLAN ${displayVlanId}`;
                         
                         return `

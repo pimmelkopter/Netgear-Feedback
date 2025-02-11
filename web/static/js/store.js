@@ -10,21 +10,45 @@ export class StateStore {
             vlanColors: {}
         };
         this.subscribers = new Set();
+        
+        // Debug logging für State Changes
+        this.debug = true;
     }
 
     subscribe(callback) {
         this.subscribers.add(callback);
-        callback(this.state);
+        // Initial call with current state
+        callback({...this.state});
         return () => this.subscribers.delete(callback);
     }
-    
+
     notify() {
-        this.subscribers.forEach(cb => cb(this.state));
+        const stateCopy = {...this.state};
+        this.subscribers.forEach(cb => cb(stateCopy));
     }
 
     setState(newState) {
+        const oldState = {...this.state};
         this.state = {...this.state, ...newState};
+        
+        if (this.debug) {
+            console.log('State updated:', {
+                old: oldState,
+                new: this.state,
+                changed: Object.keys(newState)
+            });
+        }
+        
         this.notify();
+    }
+
+    // Helper method to check if we have valid data
+    hasValidData() {
+        return (
+            Object.keys(this.state.ports).length > 0 &&
+            Object.keys(this.state.vlans).length > 0 &&
+            Object.keys(this.state.vlanColors).length > 0
+        );
     }
 }
 

@@ -38,6 +38,26 @@
         @apply ring-2 ring-black transform scale-105;
     }
 
+    .port-button, .vlan-button {
+         min-height: 5rem;
+         transition: all 0.2s ease-in-out;
+         display: flex;
+         flex-direction: column;
+         justify-content: center;
+         align-items: center;
+         border-radius: 0.5rem;
+   }
+   
+   .selected {
+         transform: scale(1.05);
+         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+   }
+   
+   .pending-change {
+         border: 2px solid #EF4444 !important;
+         animation: pulse 2s infinite;
+   }
+
     /* Loading states */
     .loading {
         @apply relative pointer-events-none;
