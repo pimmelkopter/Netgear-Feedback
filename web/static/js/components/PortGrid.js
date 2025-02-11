@@ -32,9 +32,17 @@ class PortGrid extends HTMLElement {
         const { ports, vlanColors, vlans } = store.state;
         
         if (!ports || Object.keys(ports).length === 0) {
-            this.innerHTML = '<div class="text-center p-4">Loading ports...</div>';
+            console.log('No ports data available');
+            this.innerHTML = `
+                <div class="text-center p-4">
+                    <div class="spinner"></div>
+                    <div>Loading ports...</div>
+                </div>
+            `;
             return;
         }
+
+        console.log('Rendering ports:', ports);
         
         this.innerHTML = `
             <div class="bg-white rounded-lg shadow p-6 mb-6">
