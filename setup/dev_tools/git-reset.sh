@@ -161,7 +161,7 @@ main() {
         error "Please do not run as root"
         exit 1
     fi
-}
+
     
     # Menu
     echo "Please select update method:"
