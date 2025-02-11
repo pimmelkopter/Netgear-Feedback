@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict, Optional, Callable
 from rpi_ws281x import PixelStrip, Color, ws
 import logging
 from .config import Config
+from .utils import VLANColorManager
 
 logger = logging.getLogger(__name__)
 
@@ -51,15 +52,26 @@ class LEDService:
         for port_id, leds in port_led_map.items():
             info = port_info.get(port_id, {})
             if not info:
-                continue
+                # If no info, use default VLAN 1
+                info = {
+                    "vlan_id": 1,
+                    "speed": 0,
+                    "poe_active": False,
+                    "vlan_color": (0, 0, 0)  # Default to black for unmapped ports
+                }
 
-            vlan_color = info.get("vlan_color", (0,0,255))
-            speed = info.get("speed", 0)
-            poe = info.get("poe_active", False)
-
+            # Get the correct color based on VLAN
+            color_manager = VLANColorManager()
+            vlan_color = color_manager.get_vlan_color(info.get("vlan_id", 1))
+            
+            # Use the resolved color and other port info
             self._update_single_port_leds(
-                leds, vlan_color, speed, poe, 
-                blink_states['blink_on'], blink_states['phase']
+                leds, 
+                vlan_color,
+                info.get("speed", 0),
+                info.get("poe_active", False),
+                blink_states['blink_on'],
+                blink_states['phase']
             )
 
         self.strip.show()

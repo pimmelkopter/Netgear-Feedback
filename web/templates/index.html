@@ -160,17 +160,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: new URLSearchParams(formData)
             });
             
-            if (response.redirected) {
+        const data = await response.json();
+        
+        if (data.status === 'success') {
                 state.isLoggedIn = true;
                 showMainApp();
                 loadData();
-            } else {
-                showLoginError('Invalid credentials');
-            }
-        } catch (error) {
-            showLoginError('Login failed');
+            }else {
+            showLoginError(data.message || 'Login failed');
         }
-    });
+    } catch (error) {
+        showLoginError('Login failed: ' + error.message);
+    }
+});
+
 
     // Apply/Cancel handlers
     document.getElementById('apply-btn').addEventListener('click', applyChanges);

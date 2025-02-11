@@ -105,26 +105,29 @@ class WebService:
                     except jwt.InvalidTokenError:
                         session.clear()
                 return render_template('index.html', show_login=True)
+            if request.method == 'POST':
+                username = request.form.get('username')
+                password = request.form.get('password')
                 
-            username = request.form.get('username')
-            password = request.form.get('password')
-            
-            if not username or not password:
-                return render_template('index.html', 
-                    show_login=True, 
-                    error="Missing credentials")
+                if not username or not password:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Missing credentials'
+                    }), 400
                 
-            if self._validate_credentials(username, password):
-                session.permanent = True
-                token = self._generate_token(username)
-                session['token'] = token
-                response = redirect(url_for('index'))
-                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-                return response
-                
-            return render_template('index.html', 
-                show_login=True, 
-                error="Invalid credentials")
+                if self._validate_credentials(username, password):
+                    session.permanent = True
+                    token = self._generate_token(username)
+                    session['token'] = token
+                    return jsonify({
+                        'status': 'success',
+                        'redirect': url_for('index')
+                    })
+                    
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid credentials'
+                }), 401
 
         @app.route('/logout')
         def logout():

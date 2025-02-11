@@ -34,7 +34,7 @@ class VLANColorManager:
         if self.config.scan_vlans:
             # When scanning VLANs, use vlan_color_map and generate random colors
             color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
-            self.color_cache = color_map
+            self.color_cache.update(color_map)
         else:
             # Use explicit VLAN colors from config
             config_dict = self.config.get_config()
@@ -43,8 +43,9 @@ class VLANColorManager:
             for key, value in config_dict.items():
                 if key.startswith('vlan') and '_color' in key:
                     try:
-                        vlan_id = int(key.replace('vlan', '').split('_')[0])
-                        self.color_cache[vlan_id] = parse_rgb_string(value)
+                        vlan_id = int(key.split('_')[0].replace('vlan', ''))
+                        color = parse_rgb_string(value)
+                        self.color_cache[vlan_id] = color
                     except (ValueError, IndexError):
                         continue
             
