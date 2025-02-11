@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 from functools import wraps
 import jwt
 import os
+import time
 from datetime import datetime, timedelta
 import logging
 from werkzeug.serving import make_server
@@ -40,7 +41,6 @@ class WebService:
         app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
         
-        self._register_routes(app)
         return app
 
     def _get_template_dir(self) -> str:
