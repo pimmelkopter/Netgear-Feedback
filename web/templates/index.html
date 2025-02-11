@@ -19,6 +19,9 @@
         .card-header { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
         .card-content { padding: 1.5rem; }
         
+        /* Modified for full width */
+        @media (min-width: 640px) { .container { max-width: 100%; padding: 1rem 2rem; } }
+        
         .btn { 
             display: inline-flex; align-items: center; justify-content: center; 
             padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500;
@@ -29,32 +32,117 @@
         .btn-secondary { background: #e5e7eb; color: #1f2937; }
         .btn-secondary:hover { background: #d1d5db; }
         
+        /* Modified port and VLAN buttons */
         .port-btn, .vlan-btn { 
-            padding: 1rem; border-radius: 0.5rem; text-align: center; 
-            transition: all 0.2s ease; cursor: pointer; border: 2px solid transparent;
+            padding: 1rem; 
+            border-radius: 0.5rem; 
+            text-align: center; 
+            transition: all 0.2s ease; 
+            cursor: pointer; 
+            border: 2px solid transparent;
+            width: 100%;
+            height: 100%;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
+        
+        .port-btn div, .vlan-btn {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+            text-align: center;
+        }
+        
         .selected-vlan { border-color: #000 !important; }
         .pending-change { border-color: #ef4444 !important; border-width: 2px; }
         
         .action-bar {
-            position: sticky; bottom: 1rem; background: white; 
-            border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; 
+            bottom: 1rem; 
+            background: white; 
+            border-radius: 0.5rem; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            padding: 1rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            z-index: 100;
         }
 
-        .hidden {
-            display: none !important;
-        }
+        .hidden { display: none !important; }
 
+        /* Modified port grid */
         .port-row {
             display: grid;
-            grid-template-columns: repeat(6, 1fr);
             gap: 0.5rem;
             margin-bottom: 0.5rem;
+        }
+
+        /* Dynamische Grid-Spalten basierend auf der Port-Anzahl */
+        .port-row-half {
+            grid-template-columns: repeat(var(--port-columns), 1fr);
+        }
+
+        /* Modified VLAN grid */
+        #vlan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.5rem;
+        }
+
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Font size adjustment for long text */
+        @media (max-width: 1600px) {
+            .port-btn div, .vlan-btn {
+                font-size: 0.875rem;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .port-btn div, .vlan-btn {
+                font-size: 0.75rem;
+            }
         }
     </style>
 </head>
 <body>
+     <!-- Loading overlay -->
+     <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
     <div id="login-container" class="container min-h-screen flex items-center justify-center">
         <div class="card max-w-md w-full">
             <div class="card-header">
@@ -197,7 +285,17 @@ function showMainApp() {
     appContainer.classList.remove('hidden');
 }
 
+// Add loading state management
+function showLoading() {
+    document.getElementById('loading-overlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loading-overlay').classList.add('hidden');
+}
+
 async function loadData() {
+    showLoading();
     try {
         const response = await fetch('/api/refresh', { method: 'POST' });
         const data = await response.json();
@@ -210,6 +308,8 @@ async function loadData() {
         renderVlans();
     } catch (error) {
         console.error('Failed to load data:', error);
+    } finally {
+        hideLoading();
     }
 }
 
@@ -306,6 +406,7 @@ function updateStatus() {
 }
 
 async function applyChanges() {
+    showLoading();
     try {
         const changes = Array.from(state.pendingChanges.entries());
         
@@ -324,6 +425,8 @@ async function applyChanges() {
         updateStatus();
     } catch (error) {
         alert('Error applying changes: ' + error.message);
+    } finally {
+        hideLoading();
     }
 }
 
