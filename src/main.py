@@ -58,6 +58,13 @@ class SwitchMonitor:
         self.running = True
         self._start_time = time.time()  # Fix: Use time.time() instead of time module
         self._led_thread = None
+        self._force_update = threading.Event()
+        self._last_port_update = 0
+        self.PORT_UPDATE_INTERVAL = 30  # 30 seconds between full port updates
+
+    def trigger_port_update(self):
+        """Force a port info update on next cycle"""
+        self._force_update.set()
 
     def _led_update_loop(self):
         """Dedicated LED update loop"""
@@ -173,6 +180,13 @@ class SwitchMonitor:
     def update_port_info(self):
         """Update port information cache"""
         try:
+            current_time = time.time()
+            
+            # Check if it's time for an update
+            if not self._force_update.is_set() and \
+               current_time - self._last_port_update < self.PORT_UPDATE_INTERVAL:
+                return
+                
             stats = self.api.get_port_info(0)  # 0 = all ports
             if not stats:
                 raise SwitchAPIError("Failed to get port stats")
@@ -200,6 +214,8 @@ class SwitchMonitor:
             
             # Update cache atomically
             self.port_cache.update(new_cache)
+            self._last_port_update = current_time
+            self._force_update.clear()
                 
         except Exception as e:
             logger.error(f"Error updating port info: {e}")
@@ -221,8 +237,6 @@ class SwitchMonitor:
 
     def main_loop(self):
         """Main monitoring loop"""
-        last_update = 0
-        
         # Start LED update thread
         self._led_thread = threading.Thread(
             target=self._led_update_loop,
@@ -231,18 +245,13 @@ class SwitchMonitor:
         self._led_thread.start()
         
         while self.running:
-            current_time = time.time()
+            try:
+                self.update_port_info()
+            except Exception as e:
+                logger.error(f"Error updating port info: {e}")
             
-            # Update port info at configured interval
-            if current_time - last_update >= self.config.update_interval:
-                try:
-                    self.update_port_info()
-                    last_update = current_time
-                except Exception as e:
-                    logger.error(f"Error updating port info: {e}")
-            
-            # Sleep to prevent CPU hogging
-            time.sleep(0.1)  # Longer sleep is fine here since we're just updating cache
+            # Sleep to prevent CPU hogging, but wake up for forced updates
+            self._force_update.wait(timeout=0.1)
 
     def is_connected(self) -> bool:
         """Check if switch is connected"""

@@ -183,6 +183,8 @@ class WebService:
                 switch_api = self._get_switch_api()
                 if switch_api.set_port_vlan(port_id, vlan_id):
                     self._invalidate_cache()
+                    # Trigger immediate port info update
+                    self.switch_monitor.trigger_port_update()
                     return jsonify({'status': 'success'})
                     
                 return jsonify({

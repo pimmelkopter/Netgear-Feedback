@@ -136,6 +136,7 @@ set_permissions() {
     sudo chown -R admin:admin "${PROJECT_DIR}/web"
     sudo chmod +x setup/dev_tools/update.sh
     sudo chmod +x setup/dev_tools/git-reset.sh
+    ./setup/dev_tools/update.sh
 }
 
 configure_services() {

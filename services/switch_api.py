@@ -191,13 +191,58 @@ class SwitchAPI:
             return False
 
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
-        """Get info for specific port or all ports"""
+        """
+        Get info for specific port or all ports.
+        For VLAN info, uses swcfg_port endpoint which is always up-to-date.
+        For other stats (speed, PoE), uses sw_portstats endpoint.
+        """
         try:
+            # Get basic stats first
             url = f"{self.base_url}/sw_portstats?portid={'ALL' if port_id == 0 else port_id}"
             response = self.session.get(url, timeout=5)
-            data = self._handle_response(response)
-            ports = data.get("switchStatsPort", [])
-            return ports[0] if port_id > 0 and ports else ports
+            stats_data = self._handle_response(response)
+            ports = stats_data.get("switchStatsPort", [])
+
+            # If requesting single port, just get VLAN info for that port
+            if port_id > 0:
+                if not ports:
+                    raise SwitchAPIError(f"No stats found for port {port_id}")
+                port_data = ports[0]
+                vlan_info = self.get_port_vlan_info(port_id)
+                port_data["vlans"] = [vlan_info["portVlanId"]]
+                return port_data
+
+            # For all ports, get VLAN info for each port
+            port_dict = {port["portId"]: port for port in ports if "portId" in port}
+            
+            for curr_port_id in range(1, self.config.port_count + 1):
+                try:
+                    vlan_info = self.get_port_vlan_info(curr_port_id)
+                    if curr_port_id in port_dict:
+                        port_dict[curr_port_id]["vlans"] = [vlan_info["portVlanId"]]
+                except Exception as e:
+                    logger.error(f"Error getting VLAN info for port {curr_port_id}: {e}")
+                    # Keep existing VLAN info if available, otherwise default to VLAN 1
+                    if curr_port_id in port_dict:
+                        port_dict[curr_port_id]["vlans"] = port_dict[curr_port_id].get("vlans", [1])
+
+            return list(port_dict.values())
+
         except Exception as e:
             logger.error(f"Error getting port info: {e}")
             raise SwitchAPIError(f"Failed to get port info: {e}")
+
+    def get_port_vlan_info(self, port_id: int) -> Dict[str, Any]:
+        """Get current VLAN assignment for a specific port"""
+        try:
+            url = f"{self.base_url}/swcfg_port?portid={port_id}"
+            response = self.session.get(url, timeout=5)
+            data = self._handle_response(response)
+            
+            if "switchPortConfig" not in data:
+                raise SwitchAPIError(f"Unexpected port data structure for port {port_id}")
+                
+            return data["switchPortConfig"]
+        except Exception as e:
+            logger.error(f"Error getting port VLAN info: {e}")
+            raise SwitchAPIError(f"Failed to get port VLAN info: {e}")
