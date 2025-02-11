@@ -319,9 +319,6 @@ class SwitchMonitor:
 class ServiceManager:
     def __init__(self):
         self.config = Config()
-        self.hotspot_service = HotspotService()
-        self.switch_monitor = SwitchMonitor()
-        self.web_service = WebService(self.switch_monitor, self.hotspot_service)
         
         # Thread-Management
         self.threads = []
@@ -353,20 +350,14 @@ class ServiceManager:
         self.threads.append(web_thread)
         logger.info("Started web interface")
 
-        # Start switch monitor (main thread)
-        self.switch_monitor.run()
-
     def cleanup(self):
         """Cleanup all services"""
         logger.info("Cleaning up services...")
-        self.hotspot_service.cleanup()
-        self.switch_monitor.cleanup_and_exit()
 
 def main():
     """Main entry point"""
-    manager = None
+    manager = ServiceManager()
     try:
-        manager = ServiceManager()
         manager.start_services()
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
