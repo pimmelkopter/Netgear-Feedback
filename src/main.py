@@ -187,7 +187,8 @@ class SwitchMonitor:
                     
                 # Parse port status
                 speed = self._parse_port_speed(port_data.get("speed", 0))
-                vlan_id = port_data.get("portVlanId", 1)
+                vlans = port_data.get("vlans", [1])
+                vlan_id = vlans[0] if vlans else 1
                 
                 # Update cache with status and color
                 new_cache[port_id] = {

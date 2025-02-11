@@ -271,7 +271,8 @@ class WebService:
             for port in port_info:
                 port_id = port.get('portId')
                 if port_id and 1 <= port_id <= self.config.port_count:
-                    port_vlans[port_id] = port.get('portVlanId', 1)
+                    vlans = port.get('vlans', [1])
+                    port_vlans[port_id] = vlans[0] if vlans else 1  # Use first VLAN as primary
             
             # Update cache
             with self._api_cache_lock:

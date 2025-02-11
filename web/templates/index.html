@@ -12,7 +12,7 @@
         @media (min-width: 1024px) { .container { max-width: 1024px; } }
         
         .grid { display: grid; gap: 0.5rem; }
-        .grid-ports { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+        .grid-ports { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         .grid-vlans { grid-template-columns: repeat(6, minmax(0, 1fr)); }
         
         .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
@@ -40,6 +40,17 @@
             position: sticky; bottom: 1rem; background: white; 
             border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .port-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
@@ -72,7 +83,9 @@
                     <h2 class="text-xl font-semibold">Ports</h2>
                 </div>
                 <div class="card-content">
-                    <div id="port-grid" class="grid grid-ports gap-2"></div>
+                    <div id="port-grid" class="space-y-2">
+                        <!-- Port rows will be inserted here -->
+                    </div>
                 </div>
             </div>
 
@@ -122,6 +135,10 @@ const statusMessage = document.getElementById('status-message');
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Initially hide app container and show login
+    loginContainer.classList.remove('hidden');
+    appContainer.classList.add('hidden');
+
     // Check existing session
     checkSession().then(loggedIn => {
         if (loggedIn) {
@@ -193,9 +210,14 @@ async function loadData() {
 function renderPorts() {
     portGrid.innerHTML = '';
     
+    // Create arrays for odd and even ports
+    const oddPorts = [];
+    const evenPorts = [];
+    
     Object.entries(state.ports).forEach(([portId, vlanId]) => {
-        const isPending = state.pendingChanges.has(Number(portId));
-        const displayVlanId = isPending ? state.pendingChanges.get(Number(portId)) : vlanId;
+        const port = Number(portId);
+        const isPending = state.pendingChanges.has(port);
+        const displayVlanId = isPending ? state.pendingChanges.get(port) : vlanId;
         const color = state.vlanColors[displayVlanId] || '#ffffff';
         const vlanName = state.vlans[displayVlanId] || `VLAN ${displayVlanId}`;
         
@@ -207,9 +229,27 @@ function renderPorts() {
             <div class="text-sm">${vlanName}</div>
         `;
         
-        portEl.addEventListener('click', () => handlePortClick(Number(portId)));
-        portGrid.appendChild(portEl);
+        portEl.addEventListener('click', () => handlePortClick(port));
+        
+        // Sort into odd/even arrays
+        if (port % 2 === 1) {
+            oddPorts.push(portEl);
+        } else {
+            evenPorts.push(portEl);
+        }
     });
+    
+    // Create row for odd ports
+    const oddRow = document.createElement('div');
+    oddRow.className = 'port-row';
+    oddPorts.forEach(port => oddRow.appendChild(port));
+    portGrid.appendChild(oddRow);
+    
+    // Create row for even ports
+    const evenRow = document.createElement('div');
+    evenRow.className = 'port-row';
+    evenPorts.forEach(port => evenRow.appendChild(port));
+    portGrid.appendChild(evenRow);
 }
 
 function renderVlans() {
