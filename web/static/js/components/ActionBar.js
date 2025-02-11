@@ -1,5 +1,8 @@
 // static/js/components/ActionBar.js
-class ActionBar extends HTMLElement {
+import { store } from '../store.js';
+import { SwitchAPI } from '../api.js';
+
+export class ActionBar extends HTMLElement {
     constructor() {
         super();
         this.api = new SwitchAPI();
@@ -9,37 +12,6 @@ class ActionBar extends HTMLElement {
         store.subscribe(state => {
             this.render();
         });
-    }
-
-    async applyChanges() {
-        try {
-            const { pendingChanges } = store.state;
-            for (const [portId, vlanId] of pendingChanges) {
-                await this.api.updatePort(portId, vlanId);
-            }
-            
-            // Refresh data after changes
-            const data = await this.api.fetchPorts();
-            if (data.status === 'success') {
-                store.setState({
-                    ports: data.port_vlans,
-                    vlanColors: data.vlan_colors,
-                    vlans: data.vlan_names,
-                    pendingChanges: new Map()
-                });
-            }
-        } catch (error) {
-            console.error('Failed to apply changes:', error);
-            this.showError('Failed to apply changes');
-        }
-    }
-
-    showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message bg-red-100 text-red-700 p-4 rounded-lg mb-4';
-        errorDiv.textContent = message;
-        this.insertAdjacentElement('beforebegin', errorDiv);
-        setTimeout(() => errorDiv.remove(), 5000);
     }
 
     render() {
@@ -65,14 +37,14 @@ class ActionBar extends HTMLElement {
                 </div>
             </div>
         `;
-
+        
         this.addEventListeners();
     }
 
     addEventListeners() {
         const applyButton = this.querySelector('#apply-button');
         const cancelButton = this.querySelector('#cancel-button');
-
+        
         if (applyButton) {
             applyButton.addEventListener('click', () => {
                 if (store.state.pendingChanges.size > 0) {
@@ -80,13 +52,35 @@ class ActionBar extends HTMLElement {
                 }
             });
         }
-
+        
         if (cancelButton) {
             cancelButton.addEventListener('click', () => {
                 if (store.state.pendingChanges.size > 0) {
                     store.setState({ pendingChanges: new Map() });
                 }
             });
+        }
+    }
+
+    async applyChanges() {
+        try {
+            const { pendingChanges } = store.state;
+            for (const [portId, vlanId] of pendingChanges) {
+                await this.api.updatePort(portId, vlanId);
+            }
+            
+            const data = await this.api.fetchPorts();
+            if (data.status === 'success') {
+                store.setState({
+                    ports: data.port_vlans,
+                    vlanColors: data.vlan_colors,
+                    vlans: data.vlan_names,
+                    pendingChanges: new Map()
+                });
+            }
+        } catch (error) {
+            console.error('Failed to apply changes:', error);
+            this.showError('Failed to apply changes');
         }
     }
 }
