@@ -23,46 +23,47 @@ create_nginx_config() {
 server {
     listen 80 default_server;
     listen [::]:80 default_server;
-
-    # Increase buffer size settings
+    
+    # Erhöhte Buffer-Einstellungen
     large_client_header_buffers 4 32k;
     client_header_buffer_size 32k;
     client_max_body_size 50M;
     
-    # Add netgear.switch to server names
-    server_name _ connectivitycheck.gstatic.com connectivitycheck.android.com clients3.google.com netgear.switch;
-
+    # Wichtig: Catch-all für alle Domains
+    server_name _;
+    
+    # Root-Verzeichnis
     root /home/admin/Netgear-Feedback/web;
 
-    # Redirect all captive portal detection URLs to our interface
+    # Captive Portal Detection URLs für verschiedene Systeme
+    location = /generate_204 { return 302 http://192.168.0.1/; }
+    location = /ncsi.txt { return 302 http://192.168.0.1/; }
+    location = /hotspot-detect.html { return 302 http://192.168.0.1/; }
+    location = /success.txt { return 302 http://192.168.0.1/; }
+    location = /canonical.html { return 302 http://192.168.0.1/; }
+    location = /kindle-wifi/wifistub.html { return 302 http://192.168.0.1/; }
+    location = /mobile/status.php { return 302 http://192.168.0.1/; }
+    
+    # Wichtig: Apple-spezifische Captive Portal Detection
+    location = /library/test/success.html { return 302 http://192.168.0.1/; }
+    
+    # Catch-all Location Block
     location / {
+        # Wichtig: HTTP 200 für Apple CNA Anfragen
+        if ($http_user_agent ~* "CaptiveNetworkSupport") {
+            return 200 "Success";
+        }
+        
         proxy_pass http://127.0.0.1:5000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         
-        # Increase proxy buffer settings
+        # Erhöhte Proxy Buffer
         proxy_buffer_size 128k;
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
-    }
-
-    # Handle all captive portal detection endpoints
-    location /generate_204 {
-        return 302 http://192.168.0.1/;
-    }
-
-    location /ncsi.txt {
-        return 302 http://192.168.0.1/;
-    }
-
-    location /hotspot-detect.html {
-        return 302 http://192.168.0.1/;
-    }
-
-    location /success.txt {
-        return 302 http://192.168.0.1/;
     }
 }
 EOL

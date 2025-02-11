@@ -13,50 +13,105 @@
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
   
-  <style>
-    .port-button.selected, .vlan-button.selected {
-      border: 2px solid #000;
-      transform: scale(1.05);
-    }
-    .pending-change {
-            border: 2px solid #EF4444 !important;
-    }
-    .pending-text {
-            color: #EF4444 !important;
-    }
-    .disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    <style>
+        /* Port und VLAN Button Basis-Styles */
+        .port-button, .vlan-button {
+        transition: all 0.2s ease-in-out;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        border: 2px solid transparent;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* Hover-Effekte */
+        .port-button:hover:not(:disabled), 
+        .vlan-button:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Ausgewählte Zustände */
+        .port-button.selected, 
+        .vlan-button.selected {
+        border: 2px solid #000;
+        transform: scale(1.05);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        /* Ausstehende Änderungen */
+        .pending-change {
+        border: 2px solid #EF4444 !important;
+        animation: pulse 2s infinite;
+        }
+
+        /* Text-Styles für ausstehende Änderungen */
+        .pending-text {
+        color: #EF4444 !important;
+        font-weight: bold;
+        }
+
+        /* Deaktivierte Zustände */
+        .disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        }
+
+        /* Lade-Zustände */
         .loading {
-            position: relative;
-            pointer-events: none;
+        position: relative;
+        pointer-events: none;
         }
         .loading::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.7);
-            border-radius: 0.375rem;
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.7);
+        border-radius: 0.5rem;
         }
+
+        /* Status-Badge Styles */
         .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 0.875rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s ease-in-out;
         }
         .status-badge.connected {
-            background-color: #10B981;
-            color: white;
+        background-color: #10B981;
+        color: white;
+        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
         }
         .status-badge.disconnected {
-            background-color: #EF4444;
-            color: white;
+        background-color: #EF4444;
+        color: white;
+        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
         }
-  </style>
+
+        /* Pulse Animation */
+        @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+        }
+
+        /* Text-Kontrast Helfer */
+        .text-contrast-white {
+        color: white;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .text-contrast-black {
+        color: black;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.2);
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
   {% if show_login %}
@@ -267,11 +322,23 @@
                     // Calculate text color based on background brightness
           const rgb = backgroundColor.match(/\d+/g).map(Number);
       const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
-                    button.style.color = brightness > 125 ? 'black' : 'white';
+                
+                // Füge Kontrastklassen hinzu/entferne sie
+                if (brightness > 125) {
+                    button.classList.remove('text-contrast-white');
+                    button.classList.add('text-contrast-black');
+                } else {
+                    button.classList.remove('text-contrast-black');
+                    button.classList.add('text-contrast-white');
     }
+            }
 
-                button.classList.toggle('pending-change', state.pendingChanges[port] !== undefined);
-                button.classList.toggle('failed', state.failed.has(port));
+            // Update Selektionsstatus
+            if (state.selectedVlan) {
+                button.classList.toggle('selected', state.pendingChanges[port] === state.selectedVlan);
+            } else {
+                button.classList.remove('selected');
+            }
             });
         }
 
@@ -315,11 +382,21 @@
 
         const port = button.dataset.port;
         const currentVlan = parseInt(button.dataset.currentVlan);
+        const vlanText = button.querySelector('.text-sm');
 
             if (state.selectedVlan === currentVlan) {
                 delete state.pendingChanges[port];
+            button.classList.remove('pending-change');
+            vlanText.classList.remove('pending-text');
         } else {
                 state.pendingChanges[port] = state.selectedVlan;
+            button.classList.add('pending-change');
+            vlanText.classList.add('pending-text');
+            
+            // Aktualisiere den VLAN-Text
+            const selectedVlanButton = document.querySelector(`[data-vlan="${state.selectedVlan}"]`);
+            const vlanName = selectedVlanButton.querySelector('.font-bold').textContent;
+            vlanText.textContent = vlanName;
             }
 
             state.failed.delete(port);
@@ -331,13 +408,16 @@
 
     async function applyChanges() {
       const statusMessage = document.getElementById('status-message');
+        const saveStatus = document.getElementById('save-status');
             updateUIState(true);
       statusMessage.textContent = 'Applying changes...';
+        saveStatus.textContent = 'Saving...';
             state.failed.clear();
 
       try {
                 const ports = Object.entries(state.pendingChanges);
                 let successCount = 0;
+            let failedPorts = [];
 
                 for (const [port, vlan] of ports) {
                     try {
@@ -346,14 +426,17 @@
             body: JSON.stringify({ vlan })
           });
 
-                        // Update UI for successful port
-          const button = document.querySelector(`[data-port="${port}"]`);
-          button.dataset.currentVlan = vlan;
+                    // Update UI for successful port
+                    const button = document.querySelector(`[data-port="${port}"]`);
+                    button.dataset.currentVlan = vlan;
+                    button.classList.remove('pending-change', 'selected');
+                    button.querySelector('.text-sm').classList.remove('pending-text');
                         delete state.pendingChanges[port];
                         successCount++;
                     } catch (error) {
                         console.error(`Failed to update port ${port}:`, error);
                         state.failed.add(port);
+                    failedPorts.push(port);
                     }
                 }
 
@@ -361,24 +444,35 @@
                 if (successCount === ports.length) {
                     statusMessage.textContent = 'All changes applied successfully';
                     statusMessage.className = 'text-green-600 font-medium';
+                saveStatus.textContent = 'All changes saved';
+                saveStatus.className = 'text-green-600';
                 } else if (successCount > 0) {
-                    statusMessage.textContent = `Applied ${successCount}/${ports.length} changes. Some ports failed.`;
+                statusMessage.textContent = `Applied ${successCount}/${ports.length} changes. Ports ${failedPorts.join(', ')} failed.`;
                     statusMessage.className = 'text-yellow-600 font-medium';
+                    saveStatus.textContent = 'Partial save';
+                    saveStatus.className = 'text-yellow-600';
                 } else {
-                    statusMessage.textContent = 'Failed to apply changes';
+                    statusMessage.textContent = 'Failed to apply any changes';
                     statusMessage.className = 'text-red-600 font-medium';
+                    saveStatus.textContent = 'Save failed';
+                    saveStatus.className = 'text-red-600';
                 }
+                // Clear selection after applying
+                state.selectedVlan = null;
+                            document.querySelectorAll('.vlan-button').forEach(b => b.classList.remove('selected'));
 
-                updatePortColors();
-                updateButtons();
-                updateVlanCounts();
-      } catch (error) {
-                statusMessage.textContent = `Error: ${error.message}`;
-                statusMessage.className = 'text-red-600 font-medium';
-      } finally {
-                updateUIState(false);
-      }
-    }
+                            updatePortColors();
+                            updateButtons();
+                            updateVlanCounts();
+                        } catch (error) {
+                            statusMessage.textContent = `Error: ${error.message}`;
+                            statusMessage.className = 'text-red-600 font-medium';
+                            saveStatus.textContent = 'Save failed';
+                            saveStatus.className = 'text-red-600';
+                        } finally {
+                            updateUIState(false);
+                        }
+                    }
 
         // Cancel pending changes
     function cancelChanges() {
