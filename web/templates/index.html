@@ -11,9 +11,37 @@
         @media (min-width: 768px) { .container { max-width: 768px; } }
         @media (min-width: 1024px) { .container { max-width: 1024px; } }
         
-        .grid { display: grid; gap: 0.5rem; }
-        .grid-ports { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-        .grid-vlans { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+        /* Container width fix */
+        .container {
+            max-width: 100% !important;
+            padding: 1rem;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
+
+        /* Responsive grid for ports and VLANs */
+        #port-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        @media (min-width: 1024px) {
+            .port-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+        }
+
+        #vlan-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 0.5rem;
+            width: 100%;
+        }
         
         .card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .card-header { padding: 1.5rem; border-bottom: 1px solid #e5e7eb; }
@@ -76,23 +104,14 @@
 
         .hidden { display: none !important; }
 
-        /* Modified port grid */
-        .port-row {
-            display: grid;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-        }
-
-        /* Dynamische Grid-Spalten basierend auf der Port-Anzahl */
-        .port-row-half {
-            grid-template-columns: repeat(var(--port-columns), 1fr);
-        }
-
-        /* Modified VLAN grid */
-        #vlan-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 0.5rem;
+        /* Selected VLAN display in status bar */
+        .selected-vlan-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            margin-right: 1rem;
         }
 
         /* Loading overlay */
@@ -223,6 +242,12 @@ const statusMessage = document.getElementById('status-message');
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    // Add resize listener for responsive port layout
+    window.addEventListener('resize', _.debounce(() => {
+        if (state.isLoggedIn) {
+            renderPorts();
+        }
+    }, 250));
     // Initially hide app container and show login
     loginContainer.classList.remove('hidden');
     appContainer.classList.add('hidden');
@@ -316,14 +341,55 @@ async function loadData() {
 function renderPorts() {
     portGrid.innerHTML = '';
     
-    // Create arrays for odd and even ports
-    const oddPorts = [];
-    const evenPorts = [];
+    // Sort ports numerically
+    const sortedPorts = Object.entries(state.ports)
+        .map(([portId, vlanId]) => ({
+            portId: Number(portId),
+            vlanId
+        }))
+        .sort((a, b) => a.portId - b.portId);
+
+    // Check if we should use even/odd layout
+    const useEvenOdd = window.innerWidth >= 1024;
     
-    Object.entries(state.ports).forEach(([portId, vlanId]) => {
-        const port = Number(portId);
-        const isPending = state.pendingChanges.has(port);
-        const displayVlanId = isPending ? state.pendingChanges.get(port) : vlanId;
+    if (useEvenOdd) {
+        // Split into even and odd ports
+        const evenPorts = sortedPorts.filter(port => port.portId % 2 === 0);
+        const oddPorts = sortedPorts.filter(port => port.portId % 2 === 1);
+        
+        // Create rows for even and odd ports
+        const oddRow = document.createElement('div');
+        oddRow.className = 'port-row';
+        const evenRow = document.createElement('div');
+        evenRow.className = 'port-row';
+        
+        // Render odd ports
+        oddPorts.forEach(({portId, vlanId}) => {
+            const portEl = createPortElement(portId, vlanId);
+            oddRow.appendChild(portEl);
+        });
+        
+        // Render even ports
+        evenPorts.forEach(({portId, vlanId}) => {
+            const portEl = createPortElement(portId, vlanId);
+            evenRow.appendChild(portEl);
+        });
+        
+        portGrid.appendChild(oddRow);
+        portGrid.appendChild(evenRow);
+    } else {
+        // Simple numerical order for smaller screens
+        sortedPorts.forEach(({portId, vlanId}) => {
+            const portEl = createPortElement(portId, vlanId);
+            portGrid.appendChild(portEl);
+        });
+    }
+}
+
+// Helper function to create port elements
+function createPortElement(portId, vlanId) {
+    const isPending = state.pendingChanges.has(portId);
+    const displayVlanId = isPending ? state.pendingChanges.get(portId) : vlanId;
         const color = state.vlanColors[displayVlanId] || '#ffffff';
         const vlanName = state.vlans[displayVlanId] || `VLAN ${displayVlanId}`;
         
@@ -335,27 +401,8 @@ function renderPorts() {
             <div class="text-sm">${vlanName}</div>
         `;
         
-        portEl.addEventListener('click', () => handlePortClick(port));
-        
-        // Sort into odd/even arrays
-        if (port % 2 === 1) {
-            oddPorts.push(portEl);
-        } else {
-            evenPorts.push(portEl);
-        }
-    });
-    
-    // Create row for odd ports
-    const oddRow = document.createElement('div');
-    oddRow.className = 'port-row';
-    oddPorts.forEach(port => oddRow.appendChild(port));
-    portGrid.appendChild(oddRow);
-    
-    // Create row for even ports
-    const evenRow = document.createElement('div');
-    evenRow.className = 'port-row';
-    evenPorts.forEach(port => evenRow.appendChild(port));
-    portGrid.appendChild(evenRow);
+    portEl.addEventListener('click', () => handlePortClick(portId));
+    return portEl;
 }
 
 function renderVlans() {
@@ -397,9 +444,25 @@ function handlePortClick(portId) {
 
 function updateStatus() {
     const count = state.pendingChanges.size;
-    statusMessage.textContent = count > 0 
+    
+    // Clear existing status
+    statusMessage.innerHTML = '';
+    
+    if (state.selectedVlan) {
+        // Create VLAN indicator
+        const vlanIndicator = document.createElement('span');
+        vlanIndicator.className = 'selected-vlan-indicator';
+        vlanIndicator.style.backgroundColor = state.vlanColors[state.selectedVlan] || '#ffffff';
+        vlanIndicator.textContent = state.vlans[state.selectedVlan] || `VLAN ${state.selectedVlan}`;
+        statusMessage.appendChild(vlanIndicator);
+    }
+    
+    // Add pending changes text
+    const statusText = document.createElement('span');
+    statusText.textContent = count > 0 
         ? `${count} changes pending`
-        : 'Select a VLAN to begin';
+        : state.selectedVlan ? 'Click ports to assign VLAN' : 'Select a VLAN to begin';
+    statusMessage.appendChild(statusText);
     
     document.getElementById('apply-btn').disabled = count === 0;
     document.getElementById('cancel-btn').disabled = count === 0;

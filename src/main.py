@@ -61,10 +61,14 @@ class SwitchMonitor:
         self._force_update = threading.Event()
         self._last_port_update = 0
         self.PORT_UPDATE_INTERVAL = 30  # 30 seconds between full port updates
+        self._force_update_ports = set() 
 
-    def trigger_port_update(self):
-        """Force a port info update on next cycle"""
-        self._force_update.set()
+    def trigger_port_update(self, port_id=None):
+        """Force a port info update on next cycle, optionally for specific port"""
+        if port_id is None:
+            self._force_update.set()  # Full update
+        else:
+            self._force_update_ports.add(port_id)
 
     def _led_update_loop(self):
         """Dedicated LED update loop"""
@@ -182,14 +186,34 @@ class SwitchMonitor:
         try:
             current_time = time.time()
             
-            # Check if it's time for an update
-            if not self._force_update.is_set() and \
+            # Check if it's time for a full update
+            if not (self._force_update.is_set() or self._force_update_ports) and \
                current_time - self._last_port_update < self.PORT_UPDATE_INTERVAL:
                 return
                 
+            # If only specific ports need updating
+            if self._force_update_ports and not self._force_update.is_set():
+                for port_id in self._force_update_ports:
+                    try:
+                        stats = self.api.get_port_info(port_id)  # Get single port
+                        if not stats:
+                            continue
+                            
+                        # Update cache for single port
+                        self._update_port_cache(port_id, stats[0])
+                    except Exception as e:
+                        logger.error(f"Error updating port {port_id}: {e}")
+                        
+                self._force_update_ports.clear()
+                return
+                
+            # Full update path
             stats = self.api.get_port_info(0)  # 0 = all ports
             if not stats:
                 raise SwitchAPIError("Failed to get port stats")
+            
+            # Update cache with new data
+            self._update_all_ports_cache(stats)
                 
             color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
             
@@ -216,6 +240,7 @@ class SwitchMonitor:
             self.port_cache.update(new_cache)
             self._last_port_update = current_time
             self._force_update.clear()
+            self._force_update_ports.clear()
                 
         except Exception as e:
             logger.error(f"Error updating port info: {e}")
