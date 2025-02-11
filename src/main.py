@@ -340,11 +340,11 @@ class ServiceManager:
         # Wait for hotspot to be ready
         time.sleep(5)  # Give hotspot time to set up interfaces
 
-        # Start web interface on 192.168.0.1:5000
+        # Start web interface on 192.168.0.1:80
         web_thread = threading.Thread(
             target=lambda: self.web_service.run(
                 host='192.168.0.1',
-                port=5000,
+                port=80,
                 debug=False
             ),
             daemon=True

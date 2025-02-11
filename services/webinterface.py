@@ -172,19 +172,6 @@ class WebService:
                     'status': 'error', 
                     'message': 'Internal server error'
                 }), 500
-        
-        # Captive Portal Routes
-        @self.app.route('/generate_204')  # Android captive portal check
-        @self.app.route('/mobile/status.php')  # iOS captive portal check
-        @self.app.route('/library/test/success.html')  # iOS/macOS captive portal check
-        @self.app.route('/hotspot-detect.html')  # iOS/macOS captive portal check
-        @self.app.route('/ncsi.txt')  # Windows captive portal check
-        def captive_portal_check():
-            return redirect('http://192.168.0.1:5000/portal')
-
-        @self.app.route('/portal')
-        def portal():
-            return render_template('portal.html')
 
     def _get_credentials(self) -> Optional[tuple]:
         """Extract credentials from request"""
@@ -269,16 +256,10 @@ class WebService:
         with self._api_cache_lock:
             self._api_cache.clear()
 
-    def run(self, host='192.168.0.1', port=5000, debug=False):
+    def run(self, host='192.168.0.1', port=80, debug=False):
         """Run the web interface"""
-        try:
-            # Start the captive portal server on port 80
-            portal_server = make_server(host, 80, self.app)
-            portal_thread = threading.Thread(target=portal_server.serve_forever)
-            portal_thread.daemon = True
-            portal_thread.start()
-            
-            # Start the main application server on port 5000
+        try:            
+            # Start the main application server on port 80
             self.app.run(
                 host=host,
                 port=port,
