@@ -23,7 +23,7 @@ class HotspotService:
         """Generate a simple SSID"""
         base = "NETGEAR-CONFIG-"
         suffix = ''.join("test")
-        #suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        #TODO suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
         return f"{base}{suffix}"
 
     def _create_dnsmasq_config(self):
