@@ -364,6 +364,7 @@ class ServiceManager:
 
 def main():
     """Main entry point"""
+    #TODO manager = None initalisierung?
     try:
         manager = ServiceManager()
         manager.start_services()

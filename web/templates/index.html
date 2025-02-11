@@ -12,104 +12,27 @@
     <meta http-equiv="X-Frame-Options" content="DENY">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
-  
     <style>
-        /* Port und VLAN Button Basis-Styles */
-        .port-button, .vlan-button {
-        transition: all 0.2s ease-in-out;
-        min-height: 80px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        padding: 0.75rem;
-        border-radius: 0.5rem;
-        border: 2px solid transparent;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .selected {
+            border: 2px solid #EF4444 !important;
+            transform: scale(1.05);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
-
-        /* Hover-Effekte */
-        .port-button:hover:not(:disabled), 
-        .vlan-button:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        /* Ausgewählte Zustände */
-        .port-button.selected, 
-        .vlan-button.selected {
-        border: 2px solid #000;
-        transform: scale(1.05);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-
-        /* Ausstehende Änderungen */
         .pending-change {
-        border: 2px solid #EF4444 !important;
-        animation: pulse 2s infinite;
+            border: 2px solid #EF4444 !important;
+            animation: pulse 2s infinite;
         }
-
-        /* Text-Styles für ausstehende Änderungen */
-        .pending-text {
-        color: #EF4444 !important;
-        font-weight: bold;
-        }
-
-        /* Deaktivierte Zustände */
-        .disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        }
-
-        /* Lade-Zustände */
-        .loading {
-        position: relative;
-        pointer-events: none;
-        }
-        .loading::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 255, 255, 0.7);
-        border-radius: 0.5rem;
-        }
-
-        /* Status-Badge Styles */
-        .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 9999px;
-        font-weight: 600;
-        font-size: 0.875rem;
-        transition: all 0.2s ease-in-out;
-        }
-        .status-badge.connected {
-        background-color: #10B981;
-        color: white;
-        box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
-        }
-        .status-badge.disconnected {
-        background-color: #EF4444;
-        color: white;
-        box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
-        }
-
-        /* Pulse Animation */
         @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
-
-        /* Text-Kontrast Helfer */
-        .text-contrast-white {
-        color: white;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-        .text-contrast-black {
-        color: black;
-        text-shadow: 0 1px 2px rgba(255,255,255,0.2);
+        .port-button, .vlan-button {
+            min-height: 5rem;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
     </style>
 </head>
@@ -163,377 +86,242 @@
   {% else %}
     <!-- Main Interface -->
   <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <div class="mb-8 flex justify-between items-center bg-white rounded-lg shadow p-4">
-            <h1 class="text-2xl font-bold text-gray-900">VLAN Configuration</h1>
-            <div class="flex space-x-4 items-center">
-                <span id="connection-status" class="status-badge">Checking connection...</span>
-                <span id="save-status" class="text-sm"></span>
-      </div>
-    </div>
-
-    {% if not script_running %}
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6" role="alert">
-      <strong class="font-bold">Warning!</strong>
-      <span class="block sm:inline">The switch monitoring script is not running or unreachable.</span>
-    </div>
-    {% else %}
-
-        <!-- Port Grid -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 class="text-xl font-semibold mb-4">Ports</h2>
-            <div class="space-y-4">
-            <!-- Odd Ports Row -->
-                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-                        {% for port in range(1, 25, 2) %}
-                        <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
-                        data-port="{{ port }}"
-                                data-current-vlan="{{ port_vlans[port] }}"
-                                style="background-color: {{ vlan_colors[port_vlans[port]] }}">
-                            <div class="font-bold text-center">Port {{ port }}</div>
-                            <div class="text-sm text-center" id="port-{{ port }}-vlan">
-                    {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
-                </div>
-                </button>
-                {% endfor %}
-            </div>
-    
-            <!-- Even Ports Row -->
-                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-                {% for port in range(2, 25, 2) %}
-                        <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
-                        data-port="{{ port }}"
-                                data-current-vlan="{{ port_vlans[port] }}"
-                                style="background-color: {{ vlan_colors[port_vlans[port]] }}">
-                            <div class="font-bold text-center">Port {{ port }}</div>
-                            <div class="text-sm text-center" id="port-{{ port }}-vlan">
-                    {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
-                </div>
-                </button>
-                {% endfor %}
-            </div>
-            </div>
-        </div>
-        
-        <!-- VLAN Selection -->
-        <div class="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 class="text-xl font-semibold mb-4">VLANs</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="vlan-container">
-                {% for vlan_id, color in vlan_colors.items() %}
-                <button class="vlan-button p-4 rounded-lg transition-all duration-200 ease-in-out hover:shadow-lg"
-                        data-vlan="{{ vlan_id }}"
-                        style="background-color: {{ color }}">
-                    <div class="font-bold text-center">
-                        {{ vlan_names[vlan_id]|default('VLAN ' ~ vlan_id) }}
-                    </div>
-                    <div class="text-sm text-center">
-                        <span class="port-count" data-vlan="{{ vlan_id }}">
-                            {{ port_vlans.values()|select("equalto", vlan_id)|list|length }}
-                        </span> Ports
-                    </div>
-                </button>
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Action Bar -->
-        <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center sticky bottom-4">
-      <div class="text-sm text-gray-600" id="status-message">
-        Select a VLAN to begin
-      </div>
-      <div class="space-x-4">
-        <button id="cancel-button"
-                onclick="cancelChanges()"
-                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 transition-colors duration-200"
-                disabled>
-          Cancel Changes
-        </button>
-        <button id="apply-button"
-                onclick="applyChanges()"
-                        class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 transition-colors duration-200"
-                disabled>
-          Apply Changes
-        </button>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-
-  <script>
-        // State management
-        const state = {
-            selectedVlan: null,
-            pendingChanges: {},
-            failed: new Set()
-        };
-
-        // Error handling
-        function handleError(error, context) {
-            console.error(`Error in ${context}:`, error);
-            const statusMessage = document.getElementById('status-message');
-            if (statusMessage) {
-                statusMessage.textContent = `Error: ${error.message || 'Unknown error'}`;
-                statusMessage.className = 'text-red-600';
-            }
-        }
-
-        // API request wrapper
-        async function apiRequest(url, options = {}) {
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    }
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-                }
-                
-                return await response.json();
-            } catch (error) {
-                console.error(`API request failed: ${error.message}`);
-                throw error;
-            }
-        }
-
-        // UI Updates
-        function updateUIState(isLoading = false) {
-            document.querySelectorAll('button').forEach(button => {
-                button.disabled = isLoading;
-                button.classList.toggle('loading', isLoading);
-            });
-        }
-
-        // Update port colors and styles
-    function updatePortColors() {
-      document.querySelectorAll('.port-button').forEach(button => {
-                const port = button.dataset.port;
-                const vlanId = state.pendingChanges[port] || button.dataset.currentVlan;
-        const vlanButton = document.querySelector(`[data-vlan="${vlanId}"]`);
-                
-        if (vlanButton) {
-          const backgroundColor = vlanButton.style.backgroundColor;
-          button.style.backgroundColor = backgroundColor;
-                    
-                    // Calculate text color based on background brightness
-          const rgb = backgroundColor.match(/\d+/g).map(Number);
-      const brightness = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
-                
-                // Füge Kontrastklassen hinzu/entferne sie
-                if (brightness > 125) {
-                    button.classList.remove('text-contrast-white');
-                    button.classList.add('text-contrast-black');
-                } else {
-                    button.classList.remove('text-contrast-black');
-                    button.classList.add('text-contrast-white');
-    }
-            }
-
-            // Update Selektionsstatus
-            if (state.selectedVlan) {
-                button.classList.toggle('selected', state.pendingChanges[port] === state.selectedVlan);
-            } else {
-                button.classList.remove('selected');
-            }
-            });
-        }
-
-        function updateVlanCounts() {
-            document.querySelectorAll('.port-count').forEach(span => {
-                const vlanId = parseInt(span.dataset.vlan);
-                const count = Array.from(document.querySelectorAll('.port-button')).filter(button => {
-                    const port = button.dataset.port;
-                    return (state.pendingChanges[port] || parseInt(button.dataset.currentVlan)) === vlanId;
-                }).length;
-                span.textContent = count;
-            });
-        }
-
-        function updateButtons() {
-            const hasPending = Object.keys(state.pendingChanges).length > 0;
-            document.getElementById('apply-button').disabled = !hasPending;
-            document.getElementById('cancel-button').disabled = !hasPending;
-        }
-
-        // Event Handlers
-    function handleVlanSelect(button) {
-      const vlanId = parseInt(button.dataset.vlan);
-      const statusMessage = document.getElementById('status-message');
-      
-            if (state.selectedVlan === vlanId) {
-                state.selectedVlan = null;
-        button.classList.remove('selected');
-        statusMessage.textContent = 'Select a VLAN to begin';
-      } else {
-        document.querySelectorAll('.vlan-button').forEach(b => b.classList.remove('selected'));
-                state.selectedVlan = vlanId;
-        button.classList.add('selected');
-        statusMessage.textContent = `Click ports to assign ${button.querySelector('.font-bold').textContent}`;
-      }
-    }
-
-        // Port click handler
-        function handlePortClick(button) {
-            if (!state.selectedVlan) return;
-
-        const port = button.dataset.port;
-        const currentVlan = parseInt(button.dataset.currentVlan);
-        const vlanText = button.querySelector('.text-sm');
-
-            if (state.selectedVlan === currentVlan) {
-                delete state.pendingChanges[port];
-            button.classList.remove('pending-change');
-            vlanText.classList.remove('pending-text');
-        } else {
-                state.pendingChanges[port] = state.selectedVlan;
-            button.classList.add('pending-change');
-            vlanText.classList.add('pending-text');
+       <!-- Header-Komponente -->
+       <switch-header></switch-header>
             
-            // Aktualisiere den VLAN-Text
-            const selectedVlanButton = document.querySelector(`[data-vlan="${state.selectedVlan}"]`);
-            const vlanName = selectedVlanButton.querySelector('.font-bold').textContent;
-            vlanText.textContent = vlanName;
-            }
+       <!-- Hauptinhalt -->
+       <main class="space-y-6">
+           <port-grid></port-grid>
+           <vlan-selector></vlan-selector>
+           <action-bar></action-bar>
+       </main>
+   </div>
+{% endif %}
 
-            state.failed.delete(port);
+<script type="module">
+   // Web Components Definition
+   class SwitchHeader extends HTMLElement {
+       connectedCallback() {
+           this.innerHTML = `
+               <div class="mb-8 flex justify-between items-center bg-white rounded-lg shadow p-4">
+                   <h1 class="text-2xl font-bold text-gray-900">VLAN Configuration</h1>
+                   <div class="flex space-x-4 items-center">
+                       <span id="connection-status" class="status-badge"></span>
+                   </div>
+               </div>
+           `;
+       }
+   }
 
-      updatePortColors();
-      updateButtons();
-            updateVlanCounts();
-        }
+   class PortGrid extends HTMLElement {
+       constructor() {
+           super();
+           this.state = {
+               ports: [],
+               selectedPort: null,
+               pendingChanges: new Map()
+           };
+       }
 
-    async function applyChanges() {
-      const statusMessage = document.getElementById('status-message');
-        const saveStatus = document.getElementById('save-status');
-            updateUIState(true);
-      statusMessage.textContent = 'Applying changes...';
-        saveStatus.textContent = 'Saving...';
-            state.failed.clear();
-
-      try {
-                const ports = Object.entries(state.pendingChanges);
-                let successCount = 0;
-            let failedPorts = [];
-
-                for (const [port, vlan] of ports) {
-                    try {
-                    await apiRequest(`/api/switch/port/${port}`, {
-            method: 'POST',
-            body: JSON.stringify({ vlan })
-          });
-
-                    // Update UI for successful port
-                    const button = document.querySelector(`[data-port="${port}"]`);
-                    button.dataset.currentVlan = vlan;
-                    button.classList.remove('pending-change', 'selected');
-                    button.querySelector('.text-sm').classList.remove('pending-text');
-                        delete state.pendingChanges[port];
-                        successCount++;
-                    } catch (error) {
-                        console.error(`Failed to update port ${port}:`, error);
-                        state.failed.add(port);
-                    failedPorts.push(port);
-                    }
-                }
-
-                // Update status message based on results
-                if (successCount === ports.length) {
-                    statusMessage.textContent = 'All changes applied successfully';
-                    statusMessage.className = 'text-green-600 font-medium';
-                saveStatus.textContent = 'All changes saved';
-                saveStatus.className = 'text-green-600';
-                } else if (successCount > 0) {
-                statusMessage.textContent = `Applied ${successCount}/${ports.length} changes. Ports ${failedPorts.join(', ')} failed.`;
-                    statusMessage.className = 'text-yellow-600 font-medium';
-                    saveStatus.textContent = 'Partial save';
-                    saveStatus.className = 'text-yellow-600';
-                } else {
-                    statusMessage.textContent = 'Failed to apply any changes';
-                    statusMessage.className = 'text-red-600 font-medium';
-                    saveStatus.textContent = 'Save failed';
-                    saveStatus.className = 'text-red-600';
-                }
-                // Clear selection after applying
-                state.selectedVlan = null;
-                            document.querySelectorAll('.vlan-button').forEach(b => b.classList.remove('selected'));
-
-                            updatePortColors();
-                            updateButtons();
-                            updateVlanCounts();
-                        } catch (error) {
-                            statusMessage.textContent = `Error: ${error.message}`;
-                            statusMessage.className = 'text-red-600 font-medium';
-                            saveStatus.textContent = 'Save failed';
-                            saveStatus.className = 'text-red-600';
-                        } finally {
-                            updateUIState(false);
-                        }
-                    }
-
-        // Cancel pending changes
-    function cancelChanges() {
-            state.pendingChanges = {};
-            state.failed.clear();
-      document.querySelectorAll('.port-button').forEach(button => {
-                button.classList.remove('pending-change', 'failed');
-        button.querySelectorAll('div').forEach(div => div.classList.remove('pending-text'));
-      });
-            updatePortColors();
-            updateButtons();
-            updateVlanCounts();
-      document.getElementById('status-message').textContent = 'Changes cancelled';
+       connectedCallback() {
+        store.subscribe(state => {
+            this.state.selectedVlan = state.selectedVlan;
+            this.state.pendingChanges = state.pendingChanges;
+            this.render();
+        });
+        this.loadData();
+        setInterval(() => this.loadData(), 5000);
     }
 
-        // Connection Status Updates
-        async function updateConnectionStatus() {
+    handlePortClick(portId) {
+        if (!this.state.selectedVlan) return;
+        
+        const newChanges = new Map(this.state.pendingChanges);
+        if (newChanges.get(portId) === this.state.selectedVlan) {
+            newChanges.delete(portId);
+        } else {
+            newChanges.set(portId, this.state.selectedVlan);
+        }
+        
+        store.setState({ pendingChanges: newChanges });
+    }
+    
+    async loadData() {
+           try {
+               const response = await fetch('/api/refresh', {method: 'POST'});
+               const data = await response.json();
+               this.state.ports = Object.entries(data.port_vlans).map(([port, vlan]) => ({
+                   id: parseInt(port),
+                   vlan,
+                   name: data.vlan_names[vlan],
+                   color: data.vlan_colors[vlan]
+               }));
+               this.render();
+           } catch (error) {
+               console.error('Error loading port data:', error);
+           }
+       }
+
+       render() {
+           this.innerHTML = `
+               <div class="bg-white rounded-lg shadow p-6 mb-6">
+                   <h2 class="text-xl font-semibold mb-4">Ports</h2>
+                   <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
+                       ${this.state.ports.map(port => `
+                           <button class="port-button ${port.id === this.state.selectedPort ? 'selected' : ''}"
+                                   style="background-color: ${port.color}"
+                                   data-port="${port.id}">
+                               <div class="font-bold">Port ${port.id}</div>
+                               <div class="text-sm">${port.name}</div>
+                           </button>
+                       `).join('')}
+                   </div>
+               </div>
+           `;
+       }
+
+       addEventListeners() {
+           this.addEventListener('click', e => {
+               const portButton = e.target.closest('.port-button');
+               if (portButton) {
+                   this.state.selectedPort = parseInt(portButton.dataset.port);
+                   this.dispatchEvent(new CustomEvent('port-selected', {
+                       detail: this.state.selectedPort
+                   }));
+                   this.render();
+               }
+           });
+       }
+   }
+   class VlanSelector extends HTMLElement {
+        constructor() {
+            super();
+            this.state = {
+                vlans: {},
+                selectedVlan: null
+            };
+        }
+
+        async connectedCallback() {
+            await this.loadData();
+            this.render();
+            this.addEventListeners();
+        }
+
+        async loadData() {
             try {
-                const response = await apiRequest('/api/status');
-                const statusElement = document.getElementById('connection-status');
-                
-                if (response.switch_connected) {
-                    statusElement.textContent = 'Connected';
-                    statusElement.className = 'status-badge connected';
-                } else {
-                    statusElement.textContent = 'Disconnected';
-                    statusElement.className = 'status-badge disconnected';
-                }
+                const response = await fetch('/api/refresh', {method: 'POST'});
+                const data = await response.json();
+                this.state.vlans = Object.entries(data.vlan_colors).map(([id, color]) => ({
+                    id: parseInt(id),
+                    color,
+                    name: data.vlan_names[id]
+                }));
+                this.render();
             } catch (error) {
-                const statusElement = document.getElementById('connection-status');
-                statusElement.textContent = 'Connection Error';
-                statusElement.className = 'status-badge disconnected';
+                console.error('Error loading VLAN data:', error);
             }
         }
 
-        // Event Listeners
-        document.getElementById('vlan-container')?.addEventListener('click', e => {
-            const button = e.target.closest('.vlan-button');
-            if (button) handleVlanSelect(button);
-        });
-
-        document.querySelectorAll('.port-button').forEach(button => {
-            button.addEventListener('click', () => handlePortClick(button));
-        });
-
-        // Initialize
-        if (!document.querySelector('form[action="/login"]')) {
-            updateConnectionStatus();
-            setInterval(updateConnectionStatus, 30000);
+        render() {
+            this.innerHTML = `
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-xl font-semibold mb-4">VLANs</h2>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        ${this.state.vlans.map(vlan => `
+                            <button class="vlan-button ${vlan.id === this.state.selectedVlan ? 'selected' : ''}"
+                                    style="background-color: ${vlan.color}"
+                                    data-vlan="${vlan.id}">
+                                <div class="font-bold">${vlan.name || `VLAN ${vlan.id}`}</div>
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
         }
 
-        // Error handling for uncaught promises
-    window.addEventListener('unhandledrejection', event => {
-      console.error('Unhandled promise rejection:', event.reason);
-            const statusMessage = document.getElementById('status-message');
-            if (statusMessage) {
-                statusMessage.textContent = `Error: ${event.reason.message || 'Unknown error'}`;
-                statusMessage.className = 'text-red-600 font-medium';
+        addEventListeners() {
+            this.addEventListener('click', e => {
+                const vlanButton = e.target.closest('.vlan-button');
+                if (vlanButton) {
+                    const vlanId = parseInt(vlanButton.dataset.vlan);
+                    this.state.selectedVlan = this.state.selectedVlan === vlanId ? null : vlanId;
+                    store.setState({ selectedVlan: this.state.selectedVlan });
+                    this.render();
+                }
+            });
+        }
+    }
+
+    class ActionBar extends HTMLElement {
+        constructor() {
+            super();
+            this.state = {
+                pendingChanges: new Map()
+            };
+        }
+
+        connectedCallback() {
+            store.subscribe(state => {
+                this.state.pendingChanges = state.pendingChanges;
+                this.render();
+            });
+            this.render();
+            this.addEventListeners();
+        }
+
+        render() {
+            const hasPending = this.state.pendingChanges.size > 0;
+            this.innerHTML = `
+                <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center sticky bottom-4">
+                    <div class="text-sm text-gray-600" id="status-message">
+                        ${hasPending ? `${this.state.pendingChanges.size} changes pending` : 'Select a VLAN to begin'}
+                    </div>
+                    <div class="space-x-4">
+                        <button id="cancel-button"
+                                class="px-4 py-2 rounded-lg ${hasPending ? 'bg-gray-500 hover:bg-gray-600 text-white' : 'bg-gray-300 cursor-not-allowed'}"
+                                ${!hasPending ? 'disabled' : ''}>
+                            Cancel Changes
+                        </button>
+                        <button id="apply-button"
+                                class="px-4 py-2 rounded-lg ${hasPending ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 cursor-not-allowed'}"
+                                ${!hasPending ? 'disabled' : ''}>
+                            Apply Changes
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        addEventListeners() {
+            this.addEventListener('click', e => {
+                if (e.target.id === 'apply-button' && this.state.pendingChanges.size > 0) {
+                    this.applyChanges();
+                } else if (e.target.id === 'cancel-button' && this.state.pendingChanges.size > 0) {
+                    store.setState({ pendingChanges: new Map() });
+                }
+            });
+        }
+
+        async applyChanges() {
+            const api = new SwitchAPI();
+            for (const [portId, vlanId] of this.state.pendingChanges) {
+                try {
+                    await api.updatePort(portId, vlanId);
+                } catch (error) {
+                    console.error(`Failed to update port ${portId}:`, error);
+                }
             }
-    });
-  </script>
-    {% endif %}
+            store.setState({ pendingChanges: new Map() });
+        }
+    }
+
+   // Registrierung der Web Components
+    customElements.define('switch-header', SwitchHeader);
+    customElements.define('port-grid', PortGrid);
+    customElements.define('vlan-selector', VlanSelector);
+    customElements.define('action-bar', ActionBar);
+   // Weitere Komponenten hier definieren...
+</script>
 </body>
 </html>
