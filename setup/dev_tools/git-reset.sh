@@ -149,7 +149,7 @@ do_git_update() {
     if ! git reset --hard origin/raspberrypi; then
         error "Failed to reset to origin/raspberrypi"
         return 1
-    }
+    fi
     
     return 0
 }
@@ -160,7 +160,8 @@ main() {
     if [ "$(id -u)" -eq 0 ]; then
         error "Please do not run as root"
         exit 1
-    }
+    fi
+}
     
     # Menu
     echo "Please select update method:"
