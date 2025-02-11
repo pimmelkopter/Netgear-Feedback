@@ -364,8 +364,8 @@ class ServiceManager:
 
 def main():
     """Main entry point"""
-    manager = ServiceManager()
     try:
+        manager = ServiceManager()
         manager.start_services()
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")

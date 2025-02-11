@@ -9,6 +9,7 @@ import logging
 import threading
 from typing import Optional, Dict, Any, Tuple
 from .switch_api import SwitchAPI, SwitchAPIError
+from .interfaces import SwitchMonitorInterface, HotspotServiceInterface
 from .config import Config
 from .utils import VLANColorManager
 
@@ -16,7 +17,10 @@ logger = logging.getLogger(__name__)
 
 class WebService:
     """Web interface for switch management"""
-    def __init__(self):
+    def __init__(self, switch_monitor: SwitchMonitorInterface, 
+                 hotspot_service: HotspotServiceInterface):
+        self.switch_monitor = switch_monitor
+        self.hotspot_service = hotspot_service
         self.config = Config()
         self.app = self._create_app()
         self._api_cache: Dict[str, Dict] = {}
@@ -121,7 +125,10 @@ class WebService:
                     pass
 
                 return jsonify({
-                    'switch_connected': switch_connected
+                    'switch_connected': switch_connected,
+                    'hotspot_active': self.hotspot_service.is_active(),
+                    'switch_connected': self.switch_monitor.is_connected(),
+                    'uptime': self.switch_monitor.get_uptime()
                 })
             except Exception as e:
                 logger.error(f"Error getting status: {e}")
