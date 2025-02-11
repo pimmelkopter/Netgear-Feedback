@@ -178,6 +178,42 @@
       <span class="block sm:inline">The switch monitoring script is not running or unreachable.</span>
     </div>
     {% else %}
+
+        <!-- Port Grid -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Ports</h2>
+            <div class="space-y-4">
+            <!-- Odd Ports Row -->
+                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
+                        {% for port in range(1, 25, 2) %}
+                        <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
+                        data-port="{{ port }}"
+                                data-current-vlan="{{ port_vlans[port] }}"
+                                style="background-color: {{ vlan_colors[port_vlans[port]] }}">
+                            <div class="font-bold text-center">Port {{ port }}</div>
+                            <div class="text-sm text-center" id="port-{{ port }}-vlan">
+                    {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
+                </div>
+                </button>
+                {% endfor %}
+            </div>
+    
+            <!-- Even Ports Row -->
+                    <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
+                {% for port in range(2, 25, 2) %}
+                        <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
+                        data-port="{{ port }}"
+                                data-current-vlan="{{ port_vlans[port] }}"
+                                style="background-color: {{ vlan_colors[port_vlans[port]] }}">
+                            <div class="font-bold text-center">Port {{ port }}</div>
+                            <div class="text-sm text-center" id="port-{{ port }}-vlan">
+                    {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
+                </div>
+                </button>
+                {% endfor %}
+            </div>
+            </div>
+        </div>
         
         <!-- VLAN Selection -->
         <div class="bg-white rounded-lg shadow p-6 mb-6">
@@ -199,42 +235,6 @@
                 {% endfor %}
             </div>
         </div>
-
-    <!-- Port Grid -->
-    <div class="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 class="text-xl font-semibold mb-4">Ports</h2>
-      <div class="space-y-4">
-        <!-- Odd Ports Row -->
-                <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-                    {% for port in range(1, 25, 2) %}
-                    <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
-                  data-port="{{ port }}"
-                            data-current-vlan="{{ port_vlans[port] }}"
-                            style="background-color: {{ vlan_colors[port_vlans[port]] }}">
-                        <div class="font-bold text-center">Port {{ port }}</div>
-                        <div class="text-sm text-center" id="port-{{ port }}-vlan">
-              {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
-            </div>
-          </button>
-          {% endfor %}
-        </div>
-
-        <!-- Even Ports Row -->
-                <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-          {% for port in range(2, 25, 2) %}
-                    <button class="port-button p-2 rounded-lg transition-all duration-200 ease-in-out"
-                  data-port="{{ port }}"
-                            data-current-vlan="{{ port_vlans[port] }}"
-                            style="background-color: {{ vlan_colors[port_vlans[port]] }}">
-                        <div class="font-bold text-center">Port {{ port }}</div>
-                        <div class="text-sm text-center" id="port-{{ port }}-vlan">
-              {{ vlan_names[port_vlans[port]]|default('VLAN ' ~ port_vlans[port]) }}
-            </div>
-          </button>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
 
         <!-- Action Bar -->
         <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center sticky bottom-4">

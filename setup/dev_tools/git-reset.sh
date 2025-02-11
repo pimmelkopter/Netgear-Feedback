@@ -235,7 +235,6 @@ main() {
     log "Update completed successfully"
     git rev-parse HEAD
     log "Please verify git status matches expected version"
-    fi
 }
 
 # Run main function
