@@ -581,7 +581,7 @@ document.getElementById('reboot-switch-btn').addEventListener('click', async () 
             throw new Error(data.message || 'Failed to reboot switch');
         }
     } catch (error) {
-        alert('Error rebooting switch: ' + error.message);
+        alert('Switch is rebooting. Please wait a few minutes before reconnecting.');
     } finally {
         hideLoading();
     }
