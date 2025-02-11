@@ -144,6 +144,9 @@ rsn_pairwise=CCMP
 
             # Re-enable NetworkManager
             subprocess.run(["sudo", "nmcli", "radio", "wifi", "on"], check=False)
+            subprocess.run(["sudo", "nmcli", "connection", "up", "Wired connection 1"], check=False)
+
+            time.sleep(2)
 
             self.active = False
             return True
