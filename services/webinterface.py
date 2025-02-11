@@ -9,7 +9,6 @@ import logging
 import threading
 from typing import Optional, Dict, Any, Tuple
 from .switch_api import SwitchAPI, SwitchAPIError
-from .interfaces import SwitchMonitorInterface, HotspotServiceInterface
 from .config import Config
 from .utils import VLANColorManager
 
@@ -17,15 +16,11 @@ logger = logging.getLogger(__name__)
 
 class WebService:
     """Web interface for switch management"""
-    def __init__(self, switch_monitor: SwitchMonitorInterface, 
-                 hotspot_service: HotspotServiceInterface):
-        self.switch_monitor = switch_monitor
-        self.hotspot_service = hotspot_service
+    def __init__(self):
         self.config = Config()
         self.app = self._create_app()
         self._api_cache: Dict[str, Dict] = {}
         self._api_cache_lock = threading.Lock()
-        self._api_cache: Dict[str, Any] = {}
         self._cache_timeout = 5  # seconds
 
     def _create_app(self) -> Flask:
@@ -76,12 +71,20 @@ class WebService:
                 port_vlans = self._get_port_vlans()
                 vlan_colors, vlan_names = self._get_vlan_info()
                 
+                # Prüfe Switch-Verbindung
+                switch_connected = False
+                try:
+                    api = self._get_switch_api()
+                    switch_connected = True
+                except:
+                    pass
+
                 return render_template('index.html',
                     show_login=False,
                     port_vlans=port_vlans,
                     vlan_colors=vlan_colors,
                     vlan_names=vlan_names,
-                    script_running=self.switch_monitor.is_connected())
+                    script_running=switch_connected)
             except Exception as e:
                 logger.error(f"Error rendering index: {e}")
                 return render_template('error.html', error=str(e))
@@ -109,10 +112,16 @@ class WebService:
         @self.login_required
         def status():
             try:
+                # Einfache Verbindungsprüfung
+                switch_connected = False
+                try:
+                    api = self._get_switch_api()
+                    switch_connected = True
+                except:
+                    pass
+
                 return jsonify({
-                    'hotspot_active': self.hotspot_service.is_active(),
-                    'switch_connected': self.switch_monitor.is_connected(),
-                    'uptime': self.switch_monitor.get_uptime()
+                    'switch_connected': switch_connected
                 })
             except Exception as e:
                 logger.error(f"Error getting status: {e}")
@@ -166,23 +175,6 @@ class WebService:
                     'message': 'Internal server error'
                 }), 500
 
-        @app.route('/api/port-info')
-        @self.login_required
-        def get_port_info():
-            """Get all port and VLAN information"""
-            try:
-                port_vlans = self._get_port_vlans()
-                vlan_colors, vlan_names = self._get_vlan_info()
-                
-                return jsonify({
-                    'portVlans': port_vlans,
-                    'vlanColors': vlan_colors,
-                    'vlanNames': vlan_names
-                })
-            except Exception as e:
-                logger.error(f"Error getting port info: {e}")
-                return jsonify({'error': str(e)}), 500
-
     def _get_credentials(self) -> Tuple[Optional[str], Optional[str]]:
         """Extract credentials from request"""
         if request.is_json:
@@ -205,6 +197,14 @@ class WebService:
     def _get_switch_api(self) -> SwitchAPI:
         """Get or create SwitchAPI instance with connection check"""
         switch_api = SwitchAPI()
+        
+        # Ensure we have a valid switch IP
+        if not self.config.switch_ip:
+            raise SwitchAPIError("No switch IP configured")
+            
+        # Set base URL before login
+        switch_api.base_url = f"https://{self.config.switch_ip}{self.config.base_url_suffix}"
+        
         if not switch_api.login():
             raise SwitchAPIError("Failed to connect to switch")
         return switch_api
