@@ -18,8 +18,7 @@ Dieses Projekt zeigt den VLAN-Status von **Netgear AV-Line Switches** mit **WS28
 ## 🚀 Installation & Setup
 
 ```bash
-sudo apt-get update -y && sudo apt-get upgrade -y
-sudo apt-get install git -y
+sudo apt-get update && sudo apt-get install git -y
 git clone https://github.com/pimmelkopter/Netgear-Feedback.git
 cd Netgear-Feedback
 ```

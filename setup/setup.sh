@@ -24,11 +24,6 @@ server {
     listen 80 default_server;
     listen [::]:80 default_server;
     
-    # Erhöhte Buffer-Einstellungen
-    large_client_header_buffers 4 32k;
-    client_header_buffer_size 32k;
-    client_max_body_size 50M;
-    
     # Wichtig: Catch-all für alle Domains
     server_name _;
     
@@ -59,11 +54,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Erhöhte Proxy Buffer
-        proxy_buffer_size 128k;
-        proxy_buffers 4 256k;
-        proxy_busy_buffers_size 256k;
     }
 }
 EOL
