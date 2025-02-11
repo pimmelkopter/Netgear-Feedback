@@ -36,6 +36,13 @@ class WebService:
         app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
         app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+        # Session cookie settings
+        app.config.update(
+            SESSION_COOKIE_SECURE=False,  #TODO Nur für HTTPS auf true
+            SESSION_COOKIE_HTTPONLY=True,  # Nicht via JavaScript zugreifbar
+            SESSION_COOKIE_SAMESITE='None'  # Cross-site Zugriff erlauben
+        )
         
         self._register_routes(app)
         return app

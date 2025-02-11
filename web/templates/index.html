@@ -257,10 +257,23 @@ const portGrid = document.getElementById('port-grid');
 const vlanGrid = document.getElementById('vlan-grid');
 const statusMessage = document.getElementById('status-message');
 
+// Debounce helper function
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
     // Add resize listener for responsive port layout
-    window.addEventListener('resize', _.debounce(() => {
+    window.addEventListener('resize', debounce(() => {
         if (state.isLoggedIn) {
             renderPorts();
         }

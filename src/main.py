@@ -247,6 +247,34 @@ class SwitchMonitor:
             if isinstance(e, SwitchAPIError):
                 self.cleanup_and_exit()
 
+    def _update_all_ports_cache(self, stats):
+        """Update cache with new port statistics"""
+        try:
+            new_cache = {}
+            for port_data in stats:
+                port_id = port_data.get("portId", 0)
+                if not 1 <= port_id <= self.config.port_count:
+                    continue
+                    
+                # Parse port status
+                speed = self._parse_port_speed(port_data.get("speed", 0))
+                vlans = port_data.get("vlans", [1])
+                vlan_id = vlans[0] if vlans else 1
+                
+                # Update cache with status
+                new_cache[port_id] = {
+                    "speed": speed,
+                    "poe_active": port_data.get("poeStatus", 0) >= 2,
+                    "vlan_id": vlan_id,
+                    "vlan_color": self._get_vlan_color(vlan_id, {})  # Empty color map as fallback
+                }
+            
+            # Update cache atomically
+            self.port_cache.update(new_cache)
+        except Exception as e:
+            logger.error(f"Error updating port cache: {e}")
+            raise
+
     def _parse_port_speed(self, raw_speed: int) -> int:
         """Convert raw speed value to normalized speed level"""
         if raw_speed == 7:
