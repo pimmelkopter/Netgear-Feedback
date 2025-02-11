@@ -1,23 +1,23 @@
 // static/js/store.js
-class StateStore {
+export class StateStore {
     constructor() {
         this.state = {
             selectedVlan: null,
             pendingChanges: new Map(),
             connectionStatus: 'checking',
-            ports: [],
-            vlans: []
+            ports: {},
+            vlans: {},
+            vlanColors: {}
         };
-        this.subscribers = [];
+        this.subscribers = new Set();
     }
 
     subscribe(callback) {
-        this.subscribers.push(callback);
-        return () => {
-            this.subscribers = this.subscribers.filter(cb => cb !== callback);
-        };
+        this.subscribers.add(callback);
+        callback(this.state);
+        return () => this.subscribers.delete(callback);
     }
-
+    
     notify() {
         this.subscribers.forEach(cb => cb(this.state));
     }

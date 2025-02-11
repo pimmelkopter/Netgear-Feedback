@@ -5,19 +5,39 @@ export class SwitchAPI {
     }
 
     async fetchPorts() {
-        const response = await fetch(`${this.baseURL}/refresh`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'}
-        });
-        return response.json();
+        try {
+            const response = await fetch(`${this.baseURL}/refresh`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
     }
 
     async updatePort(portId, vlanId) {
-        const response = await fetch(`${this.baseURL}/switch/port/${portId}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({vlan: vlanId})
-        });
-        return response.json();
+        try {
+            const response = await fetch(`${this.baseURL}/switch/port/${portId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({vlan: vlanId})
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
     }
 }

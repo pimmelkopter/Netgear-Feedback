@@ -34,6 +34,47 @@
             justify-content: center;
             align-items: center;
         }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -91,237 +132,22 @@
             
        <!-- Hauptinhalt -->
        <main class="space-y-6">
-           <port-grid></port-grid>
-           <vlan-selector></vlan-selector>
-           <action-bar></action-bar>
-       </main>
+        <div class="loading-overlay hidden">
+            <div class="spinner"></div>
+        </div>
+        <port-grid></port-grid>
+        <vlan-selector></vlan-selector>
+        <action-bar></action-bar>
+    </main>
    </div>
 {% endif %}
 
 <script type="module">
-   // Web Components Definition
-   class SwitchHeader extends HTMLElement {
-       connectedCallback() {
-           this.innerHTML = `
-               <div class="mb-8 flex justify-between items-center bg-white rounded-lg shadow p-4">
-                   <h1 class="text-2xl font-bold text-gray-900">VLAN Configuration</h1>
-                   <div class="flex space-x-4 items-center">
-                       <span id="connection-status" class="status-badge"></span>
-                   </div>
-               </div>
-           `;
-       }
-   }
-
-   class PortGrid extends HTMLElement {
-       constructor() {
-           super();
-           this.state = {
-               ports: [],
-               selectedPort: null,
-               pendingChanges: new Map()
-           };
-       }
-
-       connectedCallback() {
-        store.subscribe(state => {
-            this.state.selectedVlan = state.selectedVlan;
-            this.state.pendingChanges = state.pendingChanges;
-            this.render();
-        });
-        this.loadData();
-        setInterval(() => this.loadData(), 5000);
-    }
-
-    handlePortClick(portId) {
-        if (!this.state.selectedVlan) return;
-        
-        const newChanges = new Map(this.state.pendingChanges);
-        if (newChanges.get(portId) === this.state.selectedVlan) {
-            newChanges.delete(portId);
-        } else {
-            newChanges.set(portId, this.state.selectedVlan);
-        }
-        
-        store.setState({ pendingChanges: newChanges });
-    }
+    import { store } from '/static/js/store.js';
+    import { SwitchAPI } from '/static/js/api.js';
+    import '/static/js/app.js';
     
-    async loadData() {
-           try {
-               const response = await fetch('/api/refresh', {method: 'POST'});
-               const data = await response.json();
-               this.state.ports = Object.entries(data.port_vlans).map(([port, vlan]) => ({
-                   id: parseInt(port),
-                   vlan,
-                   name: data.vlan_names[vlan],
-                   color: data.vlan_colors[vlan]
-               }));
-               this.render();
-           } catch (error) {
-               console.error('Error loading port data:', error);
-           }
-       }
-
-       render() {
-           this.innerHTML = `
-               <div class="bg-white rounded-lg shadow p-6 mb-6">
-                   <h2 class="text-xl font-semibold mb-4">Ports</h2>
-                   <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
-                       ${this.state.ports.map(port => `
-                           <button class="port-button ${port.id === this.state.selectedPort ? 'selected' : ''}"
-                                   style="background-color: ${port.color}"
-                                   data-port="${port.id}">
-                               <div class="font-bold">Port ${port.id}</div>
-                               <div class="text-sm">${port.name}</div>
-                           </button>
-                       `).join('')}
-                   </div>
-               </div>
-           `;
-       }
-
-       addEventListeners() {
-           this.addEventListener('click', e => {
-               const portButton = e.target.closest('.port-button');
-               if (portButton) {
-                   this.state.selectedPort = parseInt(portButton.dataset.port);
-                   this.dispatchEvent(new CustomEvent('port-selected', {
-                       detail: this.state.selectedPort
-                   }));
-                   this.render();
-               }
-           });
-       }
-   }
-   class VlanSelector extends HTMLElement {
-        constructor() {
-            super();
-            this.state = {
-                vlans: {},
-                selectedVlan: null
-            };
-        }
-
-        async connectedCallback() {
-            await this.loadData();
-            this.render();
-            this.addEventListeners();
-        }
-
-        async loadData() {
-            try {
-                const response = await fetch('/api/refresh', {method: 'POST'});
-                const data = await response.json();
-                this.state.vlans = Object.entries(data.vlan_colors).map(([id, color]) => ({
-                    id: parseInt(id),
-                    color,
-                    name: data.vlan_names[id]
-                }));
-                this.render();
-            } catch (error) {
-                console.error('Error loading VLAN data:', error);
-            }
-        }
-
-        render() {
-            this.innerHTML = `
-                <div class="bg-white rounded-lg shadow p-6 mb-6">
-                    <h2 class="text-xl font-semibold mb-4">VLANs</h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        ${this.state.vlans.map(vlan => `
-                            <button class="vlan-button ${vlan.id === this.state.selectedVlan ? 'selected' : ''}"
-                                    style="background-color: ${vlan.color}"
-                                    data-vlan="${vlan.id}">
-                                <div class="font-bold">${vlan.name || `VLAN ${vlan.id}`}</div>
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        }
-
-        addEventListeners() {
-            this.addEventListener('click', e => {
-                const vlanButton = e.target.closest('.vlan-button');
-                if (vlanButton) {
-                    const vlanId = parseInt(vlanButton.dataset.vlan);
-                    this.state.selectedVlan = this.state.selectedVlan === vlanId ? null : vlanId;
-                    store.setState({ selectedVlan: this.state.selectedVlan });
-                    this.render();
-                }
-            });
-        }
-    }
-
-    class ActionBar extends HTMLElement {
-        constructor() {
-            super();
-            this.state = {
-                pendingChanges: new Map()
-            };
-        }
-
-        connectedCallback() {
-            store.subscribe(state => {
-                this.state.pendingChanges = state.pendingChanges;
-                this.render();
-            });
-            this.render();
-            this.addEventListeners();
-        }
-
-        render() {
-            const hasPending = this.state.pendingChanges.size > 0;
-            this.innerHTML = `
-                <div class="bg-white rounded-lg shadow p-4 flex justify-between items-center sticky bottom-4">
-                    <div class="text-sm text-gray-600" id="status-message">
-                        ${hasPending ? `${this.state.pendingChanges.size} changes pending` : 'Select a VLAN to begin'}
-                    </div>
-                    <div class="space-x-4">
-                        <button id="cancel-button"
-                                class="px-4 py-2 rounded-lg ${hasPending ? 'bg-gray-500 hover:bg-gray-600 text-white' : 'bg-gray-300 cursor-not-allowed'}"
-                                ${!hasPending ? 'disabled' : ''}>
-                            Cancel Changes
-                        </button>
-                        <button id="apply-button"
-                                class="px-4 py-2 rounded-lg ${hasPending ? 'bg-green-500 hover:bg-green-600 text-white' : 'bg-gray-300 cursor-not-allowed'}"
-                                ${!hasPending ? 'disabled' : ''}>
-                            Apply Changes
-                        </button>
-                    </div>
-                </div>
-            `;
-        }
-
-        addEventListeners() {
-            this.addEventListener('click', e => {
-                if (e.target.id === 'apply-button' && this.state.pendingChanges.size > 0) {
-                    this.applyChanges();
-                } else if (e.target.id === 'cancel-button' && this.state.pendingChanges.size > 0) {
-                    store.setState({ pendingChanges: new Map() });
-                }
-            });
-        }
-
-        async applyChanges() {
-            const api = new SwitchAPI();
-            for (const [portId, vlanId] of this.state.pendingChanges) {
-                try {
-                    await api.updatePort(portId, vlanId);
-                } catch (error) {
-                    console.error(`Failed to update port ${portId}:`, error);
-                }
-            }
-            store.setState({ pendingChanges: new Map() });
-        }
-    }
-
-   // Registrierung der Web Components
-    customElements.define('switch-header', SwitchHeader);
-    customElements.define('port-grid', PortGrid);
-    customElements.define('vlan-selector', VlanSelector);
-    customElements.define('action-bar', ActionBar);
-   // Weitere Komponenten hier definieren...
+    // Web Components werden in app.js geladen
 </script>
 </body>
 </html>

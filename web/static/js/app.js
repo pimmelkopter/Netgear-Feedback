@@ -1,6 +1,7 @@
 // static/js/app.js
 import { store } from './store.js';
 import { SwitchAPI } from './api.js';
+import './components/PortGrid.js';
 
 class AppController {
     constructor() {
@@ -52,6 +53,28 @@ class AppController {
             } catch (error) {
                 console.error('Port update failed:', error);
             }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial store setup
+            store.setState({
+                selectedVlan: null,
+                pendingChanges: new Map(),
+                ports: {},
+                vlans: {},
+                vlanColors: {}
+            });
+        })
+    
+        // Error handling for the entire app
+        window.addEventListener('unhandledrejection', event => {
+            console.error('Unhandled promise rejection:', event.reason);
+            // Show user-friendly error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed top-4 right-4 bg-red-100 text-red-700 p-4 rounded-lg shadow-lg';
+            errorDiv.textContent = 'An error occurred. Please try again.';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => errorDiv.remove(), 5000);
         });
     }
 
