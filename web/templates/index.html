@@ -182,8 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function checkSession() {
     try {
-        const response = await fetch('/');
-        return response.ok;
+        const response = await fetch('/api/status', {
+            credentials: 'include',
+            redirect: 'error'  // Verhindert automatisches Folgen von Redirects
+        });
+        return response.ok && response.status === 200;
     } catch (error) {
         return false;
     }
