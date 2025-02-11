@@ -225,6 +225,42 @@ class WebService:
                     'status': 'error',
                     'message': str(e)
                 }), 500
+            
+        @app.route('/api/switch/backup/restore', methods=['POST'])
+        @self.login_required
+        def restore_backup():
+            try:
+                switch_api = self._get_switch_api()
+                if switch_api.restore_backup_via_api():
+                    return jsonify({'status': 'success'})
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to restore backup'
+                }), 500
+            except Exception as e:
+                logger.error(f"Error restoring backup: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e)
+                }), 500
+
+        @app.route('/api/switch/reboot', methods=['POST'])
+        @self.login_required
+        def reboot_switch():
+            try:
+                switch_api = self._get_switch_api()
+                if switch_api.reboot_switch():
+                    return jsonify({'status': 'success'})
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to reboot switch'
+                }), 500
+            except Exception as e:
+                logger.error(f"Error rebooting switch: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e)
+                }), 500
 
     def _get_credentials(self) -> Tuple[Optional[str], Optional[str]]:
         """Extract credentials from request"""

@@ -206,6 +206,23 @@
                 </div>
             </div>
 
+            <!-- System Actions -->
+            <div class="card mt-6">
+                <div class="card-header">
+                    <h2 class="text-xl font-semibold">System Actions</h2>
+                </div>
+                <div class="card-content">
+                    <div class="flex space-x-4">
+                        <button id="restore-backup-btn" class="btn btn-secondary">
+                            Load Backup
+                        </button>
+                        <button id="reboot-switch-btn" class="btn btn-secondary">
+                            Reboot Switch
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- Action Bar -->
             <div class="action-bar">
                 <div id="status-message" class="text-sm text-gray-600">
@@ -504,6 +521,58 @@ function showLoginError(message) {
     errorEl.textContent = message;
     errorEl.classList.remove('hidden');
 }
+
+document.getElementById('restore-backup-btn').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to load the backup configuration? This will require a reboot.')) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await fetch('/api/switch/backup/restore', {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to restore backup');
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('Backup restored successfully. The switch needs to be rebooted to apply changes.');
+        } else {
+            throw new Error(data.message || 'Failed to restore backup');
+        }
+    } catch (error) {
+        alert('Error restoring backup: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+});
+
+document.getElementById('reboot-switch-btn').addEventListener('click', async () => {
+    if (!confirm('Are you sure you want to reboot the switch? This will disconnect all clients.')) {
+        return;
+    }
+    
+    showLoading();
+    try {
+        const response = await fetch('/api/switch/reboot', {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to reboot switch');
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('Switch is rebooting. Please wait a few minutes before reconnecting.');
+        } else {
+            throw new Error(data.message || 'Failed to reboot switch');
+        }
+    } catch (error) {
+        alert('Error rebooting switch: ' + error.message);
+    } finally {
+        hideLoading();
+    }
+});
 </script>
 </body>
 </html>

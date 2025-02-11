@@ -189,6 +189,28 @@ class SwitchAPI:
         except Exception as e:
             logger.error(f"API save failed: {e}")
             return False
+        
+    def restore_backup_via_api(self) -> bool:
+        try:
+            url = f"{self.base_url}/config_copy?directive=btos"
+            response = self.session.post(url, json={"directive":"btos"}, timeout=15)
+            self._handle_response(response)
+            logger.info("Backup restored to startup-config - please reboot")
+            return True
+        except Exception as e:
+            logger.error(f"Backup restore failed: {e}")
+            return False
+        
+    def reboot_switch(self) -> bool:
+        try:
+            url = f"{self.base_url}/device_reboot"
+            response = self.session.post(url, timeout=15)
+            self._handle_response(response)
+            logger.info("Device Reboot")
+            return True
+        except Exception as e:
+            logger.error(f"Reboot failed: {e}")
+            return False
 
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
         """
