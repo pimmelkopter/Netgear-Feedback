@@ -97,7 +97,7 @@ The **Port-Mapping-Generator** (`utils.py`) creates an association between **Swi
 ## 🎨 VLAN-Farbzuordnung
 
 - Defined in `config.json` as a **Mapping from VLAN-IDs to RGB-Colors**.
-- If you use `scan_vlans=true` **VLAN Names and Colors** will be pulled from the device config.
+- If you use `scan_vlans=true` **VLAN Names** will be pulled from the device config and mapped to vlan_color_map.
 - Format:  
   ```json
   "vlan_color_map": "100:255,0,0;200:0,255,0"

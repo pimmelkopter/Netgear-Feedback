@@ -56,11 +56,13 @@ class SwitchMonitor:
         self.api = None
         self.port_cache = PortCache()
         self.running = True
-        self._start_time = time.time()  # Fix: Use time.time() instead of time module
+        self._start_time = time.time()
         self._led_thread = None
         self._force_update = threading.Event()
         self._last_port_update = 0
-        self.PORT_UPDATE_INTERVAL = 30  # 30 seconds between full port updates
+        self._last_stats_update = 0
+        self.VLAN_UPDATE_INTERVAL = 30  # 30 seconds between VLAN updates
+        self.STATS_UPDATE_INTERVAL = self.config.update_interval  # Config interval for speed/PoE
         self._force_update_ports = set() 
 
     def trigger_port_update(self, port_id=None):
@@ -186,13 +188,16 @@ class SwitchMonitor:
         try:
             current_time = time.time()
             
-            # Check if it's time for a full update
-            if not (self._force_update.is_set() or self._force_update_ports) and \
-               current_time - self._last_port_update < self.PORT_UPDATE_INTERVAL:
+            # Check update intervals
+            need_vlan_update = (self._force_update.is_set() or 
+                              current_time - self._last_port_update >= self.VLAN_UPDATE_INTERVAL)
+            need_stats_update = (current_time - self._last_stats_update >= self.STATS_UPDATE_INTERVAL)
+            
+            if not (need_vlan_update or need_stats_update or self._force_update_ports):
                 return
                 
             # If only specific ports need updating
-            if self._force_update_ports and not self._force_update.is_set():
+            if self._force_update_ports and not need_vlan_update:
                 for port_id in self._force_update_ports:
                     try:
                         stats = self.api.get_port_info(port_id)  # Get single port
@@ -206,73 +211,93 @@ class SwitchMonitor:
                         
                 self._force_update_ports.clear()
                 return
-                
-            # Full update path
-            stats = self.api.get_port_info(0)  # 0 = all ports
-            if not stats:
-                raise SwitchAPIError("Failed to get port stats")
-            
-            # Update cache with new data
-            self._update_all_ports_cache(stats)
-                
-            color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
-            
+
             new_cache = {}
-            for port_data in stats:
-                port_id = port_data.get("portId", 0)
-                if not 1 <= port_id <= self.config.port_count:
-                    continue
-                    
-                # Parse port status
-                speed = self._parse_port_speed(port_data.get("speed", 0))
-                vlans = port_data.get("vlans", [1])
-                vlan_id = vlans[0] if vlans else 1
-                
-                # Update cache with status and color
-                new_cache[port_id] = {
-                    "speed": speed,
-                    "poe_active": port_data.get("poeStatus", 0) >= 2,
-                    "vlan_id": vlan_id,
-                    "vlan_color": self._get_vlan_color(vlan_id, color_map)
-                }
-            
-            # Update cache atomically
-            self.port_cache.update(new_cache)
-            self._last_port_update = current_time
-            self._force_update.clear()
-            self._force_update_ports.clear()
-                
+            current_cache = self.port_cache.get()
+
+            # Update stats if needed
+            if need_stats_update:
+                port_stats = self.api.get_port_stats(0)  # 0 = all ports
+                if port_stats:
+                    for port_data in port_stats:
+                        port_id = port_data.get("portId", 0)
+                        if not 1 <= port_id <= self.config.port_count:
+                            continue
+                            
+                        speed = self._parse_port_speed(port_data.get("speed", 0))
+                        poe_active = port_data.get("poeStatus", 0) >= 2
+                        
+                        # Get existing VLAN info from cache
+                        cache_entry = current_cache.get(port_id, {})
+                        new_cache[port_id] = {
+                            "speed": speed,
+                            "poe_active": poe_active,
+                            "vlan_id": cache_entry.get("vlan_id", 1),
+                            "vlan_color": cache_entry.get("vlan_color", self._get_vlan_color(1, {}))
+                        }
+                    self._last_stats_update = current_time
+
+            # Update VLANs if needed
+            if need_vlan_update:
+                port_info = self.api.get_port_info(0)  # Get VLAN info for all ports
+                if port_info:
+                    color_map = parse_vlan_color_map(self.config.get('vlan_color_map', ''))
+                    for port_data in port_info:
+                        port_id = port_data.get("portId", 0)
+                        if not 1 <= port_id <= self.config.port_count:
+                            continue
+                            
+                        vlans = port_data.get("vlans", [1])
+                        vlan_id = vlans[0] if vlans else 1
+                        
+                        # Update or create cache entry
+                        if port_id in new_cache:
+                            new_cache[port_id]["vlan_id"] = vlan_id
+                            new_cache[port_id]["vlan_color"] = self._get_vlan_color(vlan_id, color_map)
+                        else:
+                            # Get existing stats from cache
+                            cache_entry = current_cache.get(port_id, {})
+                            new_cache[port_id] = {
+                                "speed": cache_entry.get("speed", 0),
+                                "poe_active": cache_entry.get("poe_active", False),
+                                "vlan_id": vlan_id,
+                                "vlan_color": self._get_vlan_color(vlan_id, color_map)
+                            }
+                    self._last_port_update = current_time
+                    self._force_update.clear()
+                    self._force_update_ports.clear()
+
+            # Update cache if we have new data
+            if new_cache:
+                self.port_cache.update(new_cache)
+
         except Exception as e:
             logger.error(f"Error updating port info: {e}")
             if isinstance(e, SwitchAPIError):
                 self.cleanup_and_exit()
 
-    def _update_all_ports_cache(self, stats):
-        """Update cache with new port statistics"""
+    def _update_port_cache(self, port_id: int, port_data: Dict[str, Any]):
+        """Update cache for a single port"""
         try:
-            new_cache = {}
-            for port_data in stats:
-                port_id = port_data.get("portId", 0)
-                if not 1 <= port_id <= self.config.port_count:
-                    continue
-                    
-                # Parse port status
-                speed = self._parse_port_speed(port_data.get("speed", 0))
-                vlans = port_data.get("vlans", [1])
-                vlan_id = vlans[0] if vlans else 1
-                
-                # Update cache with status
-                new_cache[port_id] = {
-                    "speed": speed,
-                    "poe_active": port_data.get("poeStatus", 0) >= 2,
-                    "vlan_id": vlan_id,
-                    "vlan_color": self._get_vlan_color(vlan_id, {})  # Empty color map as fallback
-                }
+            current_cache = self.port_cache.get()
+            
+            # Parse port status
+            speed = self._parse_port_speed(port_data.get("speed", 0))
+            vlans = port_data.get("vlans", [1])
+            vlan_id = vlans[0] if vlans else 1
+            
+            # Update cache entry
+            current_cache[port_id] = {
+                "speed": speed,
+                "poe_active": port_data.get("poeStatus", 0) >= 2,
+                "vlan_id": vlan_id,
+                "vlan_color": self._get_vlan_color(vlan_id, {})
+            }
             
             # Update cache atomically
-            self.port_cache.update(new_cache)
+            self.port_cache.update(current_cache)
         except Exception as e:
-            logger.error(f"Error updating port cache: {e}")
+            logger.error(f"Error updating port cache for port {port_id}: {e}")
             raise
 
     def _parse_port_speed(self, raw_speed: int) -> int:
@@ -319,7 +344,7 @@ class SwitchMonitor:
 
     def get_uptime(self) -> float:
         """Get uptime in seconds"""
-        return time.time() - self._start_time  # _start_time in __init__ setzen
+        return time.time() - self._start_time
 
     def cleanup_and_exit(self):
         """Clean shutdown sequence"""
