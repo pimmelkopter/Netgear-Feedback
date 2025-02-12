@@ -1,19 +1,43 @@
-Hier ist eine aktualisierte und leserlich formatierte `README.md`, die deinen Inhalt beibehält, aber besser strukturiert ist:
+# Netgear AV-Line VLAN-ID LED Feedback
+**For Netgear M4250 Series**
+
+## Features
+
+- **Netgear Visual Feedback via LEDs**: Displays assigned VLAN, port link status, and POE active indicator.
+- **Netgear VLAN Assignment via Web GUI over WiFi**
+- **Save, Reboot, and Load Backup-Config Functionality via WiFi**
+
+
+
+**Functions:**
+- **Network Scan**: Scans for a switch or a fixed IP address (e.g., OBB Port).
+- **Port Detection**: Automatically determines the number of ports on the switch.
+- **Flexible LED Mapping Modes**: Offers various LED mapping modes depending on the wiring setup.
+- **Single LED Mode**: Cycles between VLAN color, POE-active status, and link speed (green for gigabit, orange for 100 Mbit).
+- **Dynamic VLAN Color Assignment**: When `scan_vlans=true` is set in the configuration, it fetches VLAN colors and names from the switch’s config file, then disables further scanning and writes the discovered VLANs into the config for later adjustment.
+- **Fixed VLAN Colors**: Alternatively, it can work with predefined VLAN colors.
+- **Port Statistics**: Updates port (link and POE) status at a configurable interval (default: 5 seconds).
+- **VLAN Updates**: Occur every 30 seconds or when updated via the web GUI.
+
+**Upcoming Features:**
+- Support for multiple switches on the network.
+- Security enhancements – e.g., auto-off for the hotspot after a timeout.
+- Porting to ESP32 with an Ethernet interface.
+
+> **Note:** Although most of the code was written with the help of chatbots, I have invested a significant amount of my free time in this project. If you wish to use the code commercially, please send me an email.
 
 ---
 
-# Netgear AV-Line VLAN-ID LED Feedback
+## 📌 Requirements
 
-Dieses Projekt zeigt den VLAN-Status von **Netgear AV-Line Switches** mit **WS2812B LEDs** an.
+- **Raspberry Pi** with **Raspberry Pi OS** (Lite is recommended)
+- **WS2812B LED Strip**
+- Wiring:
+  - **DATA** → **GPIO 18** *(configurable in `config.json`)*
+  - **+5V** → **5V**
+  - **GND** → **GND**
 
-## 📌 Anforderungen
-
-- **Raspberry Pi** mit **Raspberry Pi OS (Lite empfohlen)**
-- **WS2812B LED-Streifen**
-- Verkabelung:
-  - **DATA** -> **GPIO 18** *(konfigurierbar in `config.json`)*
-  - **+5V** -> **5V**
-  - **GND** -> **GND**
+---
 
 ## 🚀 Installation & Setup
 
@@ -23,22 +47,22 @@ git clone https://github.com/pimmelkopter/Netgear-Feedback.git
 cd Netgear-Feedback
 ```
 
-### 🔧 Konfiguration anpassen
+🔧 Adjust Configuration
 
 ```bash
-nano config/config.json  # Einstellungen anpassen
+nano config/config.json  # Customize settings as needed
 mv config/secrets_initial.json config/secrets.json
-nano config/secrets.json  # Zugangsdaten eintragen
+nano config/secrets.json  # Enter your netgear-switch credentials
 ```
 
-### 🛠 Installation starten
+🛠 Start Installation
 
 ```bash
 chmod +x setup/setup.sh
 ./setup/setup.sh
 ```
 
-Falls `config.json` geändert wurde, führe einfach das Update-Skript aus:
+If you change config.json, simply run the update script:
 
 ```bash
 ./setup/dev_tools/update.sh
@@ -46,42 +70,41 @@ Falls `config.json` geändert wurde, führe einfach das Update-Skript aus:
 
 ---
 
-## ⚙️ Port-Mapping-Modi (utils.py)
+## ⚙️ Port-Mapping-Modes (utils.py)
 
-Der **Port-Mapping-Generator** (`utils.py`) erzeugt eine Zuordnung von **Switch-Ports zu LED-Indizes**.
+The **Port-Mapping-Generator** (`utils.py`) creates an association between **Switch-Ports and LEDs** depending on your setup - check **config.json** for this.
 
-**Verfügbare Modi:**
-- `linear` → 1..port_count in aufsteigender Reihenfolge
-- `odd_even-linear` → erst ungerade, dann gerade Ports (beide aufsteigend)
-- `odd_even-even_reversed` → ungerade aufsteigend, gerade absteigend
-- `odd_even-odd_reversed` → ungerade absteigend, gerade aufsteigend
-- `odd_even-reversed` → ungerade & gerade absteigend  
+**Available Modes:**
+- `linear` → Ports 1..port_count in ascending order
+- `odd_even-linear` → First odd-numbered ports, then even-numbered ports (both in ascending order)
+- `odd_even-even_reversed` → Odd-numbered ports in ascending order, even-numbered ports in descending order
+- `odd_even-odd_reversed` → Odd-numbered ports in descending order, even-numbered ports in ascending order
+- `odd_even-reversed` → Both odd and even ports in descending order  
 *(Fallback → `linear`)*
 
-### ➕ LED-Lücken konfigurieren
-- **`gap_start`** → Offset vor dem ersten Port
-- **`gap_end`** → Offset nach dem letzten Port
-- **`gap_between_rows`** → Nur für getrennte ungerade/gerade Blöcke
-- **`block_size, gap_after_block`** → Nach `block_size` Ports wird `gap_after_block` LEDs übersprungen
+### ➕ Configuring LED Gaps
+- **`gap_start`** → Offset before the first port
+- **`gap_end`** → Offset after the last port
+- **`gap_between_rows`** → Only for separate odd/even blocks
+- **`block_size, gap_after_block`** → After `block_size` ports skip `gap_after_block` LEDs 
 
 ⏩ **Beispiel**:  
-`odd_even-linear` → Ungerade aufsteigend, danach gerade aufsteigend  
-`odd_even-even_reversed` → Ungerade aufsteigend, gerade absteigend  
+`odd_even-linear` → Odd ports ascending, then even ports ascending  
+`odd_even-even_reversed` → Odd ports ascending, even ports descending 
 
 ---
 
 ## 🎨 VLAN-Farbzuordnung
 
-- Definiert in `config.json` als **Mapping von VLAN-IDs zu RGB-Farben**.
+- Defined in `config.json` as a **Mapping from VLAN-IDs to RGB-Colors**.
+- If you use `scan_vlans=true` **VLAN Names and Colors** will be pulled from the device config.
 - Format:  
   ```json
   "vlan_color_map": "100:255,0,0;200:0,255,0"
   ```
-- Rückgabe:  
+- Parsed into:  
   ```python
   {100: (255,0,0), 200: (0,255,0)}
   ```
 
 ---
-
-🔥 **Viel Spaß mit Netgear VLAN-Feedback!** 🚀

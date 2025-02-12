@@ -1,41 +1,59 @@
 {
-  "dhcp": false,
+  "_comment_led-setup": "configure to match your led setup",
+  "led_pin": 18,
+  "led_count": 130,
+  "led_brightness": 10,
+
+  
+  "_comment_led_mapping": "LED mapping options",
+  "leds_per_port": 2,
+  "gap_per_port": 0,
+  "_comment_gap_per_port": "if you have 'unused' LEDs between every port",
+  "led_gap_start": 11,
+  "_comment_gap_start": "'start' is the number of 'unused' LEDs before the first port",
+  "led_gap_end": 11,
+  "_comment_gap_end": "'end' is the number of 'unused' LEDs after the last port",
+  "led_gap_between_rows": 56,
+  "_comment_gap_rows": "'unused' number of LEDs after last port firs row and first port second row",
+  "port_block_size": 6,
+  "led_gap_after_block": 1,
+  "_comment_gap_block": "'block_size' indicates after how many ports a gap is added, and 'gap after block' is the size of this gap",
+   
+  "port_mapping_mode": "odd_even-even_reversed",
+  "_comment_port_mapping_modes": "'linear', 'odd_even-linear', 'odd_even-even_reversed', 'odd_even-odd_reversed','odd_even-reversed', 'manual'",
+  "_comment_manual_mapping": "If you want to continue using a manual string list, that is also possible:",
+  "port_led_mapping": "1:1,2;2:3,4;3:5,6;4:7,8",
+  
+
+  "_comment_network_setup":"Network Options",
   "ip_scan": true,
-  "switch_ip": "c8a21383-bf5e-41f3-b11e-46b83dbbcb45.mock.pstmn.io",
-  "_comment_switch_ip": "nur IP Adresse ohne https://",
+  "scan_base": "10.18.254",
+  "_comment_scan_base": "This is the first three blocks of the ip address your switch should be in",
+  "scan_range_start": 1,
+  "scan_range_end": 254,
+
+  "switch_ip": "10.18.254.150",
+  "_comment_switch_ip": "Only the IP address without https:// - is not used if ip_scan=true",
   "base_url_suffix": ":8443/api/v1",
+  
+  "dhcp": false,
   "fixed_ip": "10.18.254.3/24",
-  "_comment_fixed_ip": "muss mit /24 enden",
+  "_comment_fixed_ip": "This is the IP your Raspi is assigned, must end with /24 for subnet configuration",
   "fixed_gw": "10.18.254.1",
   "dns_server": "8.8.8.8",
+  "_comment_fixed_gw": "gateway and dns_server won't effect much of this script",
+  
+
   "auto_detect_ports": true,
   "fixed_port_count": 24,
 
-  "_comment_abschnitt": "LED Mapping Optionen",
-  "port_mapping_mode": "odd_even-even_reversed",
-  "leds_per_port": 2,
-  "gap_per_port": 0,
   "port_stats": true,
-  "comment_port_mapping_modes": "'linear', 'odd_even-linear', 'odd_even-even_reversed', 'odd_even-odd_reversed','odd_even-reversed', 'manual'",
-  "led_gap_start": 11,
-  "led_gap_end": 11,
-  "led_gap_between_rows": 56,
-  "port_block_size": 6,
-  "led_gap_after_block": 1,
-  "_comment_gap_block": "'start' wie viele LEDs vor erstem Port, 'end' wie viele nach letztem Port 'block_size' nach wievielen Ports kommt eine Lücke, 'gap after block' wie groß ist diese Lücke",
-  "port_led_mapping": "1:1,2;2:3,4;3:5,6;4:7,8",
-  "_comment_manual_mapping":"Falls man weiterhin manuell eine Stringliste hat, geht das auch:",
-
-  "led_pin": 18,
-  "scan_base": "10.18.254",
-  "scan_range_start": 100,
-  "scan_range_end": 250,
-  "led_count": 130,
-  "led_brightness": 10,
   "update_interval": 5,
+  "_comment_port_stats": "if false only vlan-color will be shown",
 
-  "_comment3": "VLAN-Farben",
-  "scan_vlans": true,
+  "_comment3": "VLAN Colors",
   "default_vlan_color": "0,0,255",
-  "vlan_color_map": "1:0,0,0;10:0,119,0;11:0,255,0;12:255,0,0;20:0,0,255;21:0,0,170;22:0,0,119;30:255,0,255;31:255,0,170;50:170,255,0;90:255,255,0;99:255,255,255"
+  "vlan_color_map": "1:0,0,0;10:0,119,0;11:0,255,0;12:255,0,0;20:0,0,255;21:0,0,170;22:0,0,119;30:255,0,255;31:255,0,170;50:170,255,0;90:255,255,0;99:255,255,255",
+  "scan_vlans": true,
+  "_comment_scanned_vlans": "if scan_vlans=true the vlans and colors of your switch config will be added here"
 }
