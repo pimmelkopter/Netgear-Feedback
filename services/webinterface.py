@@ -1,6 +1,5 @@
 ## services/webinterface.py ##
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from flask_cors import CORS
 from functools import wraps
 import jwt
 import os
@@ -37,17 +36,6 @@ class WebService:
         app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
         app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
         app.config['TEMPLATES_AUTO_RELOAD'] = True
-        app.config['SESSION_REFRESH_EACH_REQUEST'] = True
-
-        # Session cookie settings
-        app.config.update(
-            SESSION_COOKIE_SECURE=False,  #TODO Nur für HTTPS auf true
-            SESSION_COOKIE_HTTPONLY=True,  # Nicht via JavaScript zugreifbar
-            SESSION_COOKIE_SAMESITE='Lax',  # Cross-site Zugriff erlauben
-            TEMPLATES_AUTO_RELOAD=True
-        )
-        
-        CORS(app, supports_credentials=True)
 
         self._register_routes(app)
         return app
@@ -107,30 +95,39 @@ class WebService:
                 logger.error(f"Error rendering index: {e}")
                 return render_template('error.html', error=str(e))
 
-        @self.app.route('/login', methods=['POST'])
+        @app.route('/login', methods=['GET', 'POST'])
         def login():
-            try:
-                data = request.get_json()  # JSON statt Form-Data
-                username = data.get('username')
-                password = data.get('password')
+            if request.method == 'GET':
+                if session.get('token'):
+                    try:
+                        jwt.decode(session['token'], self.app.config['SECRET_KEY'], algorithms=["HS256"])
+                        return redirect(url_for('index'))
+                    except jwt.InvalidTokenError:
+                        session.clear()
+                return render_template('index.html', show_login=True)
+            if request.method == 'POST':
+                username = request.form.get('username')
+                password = request.form.get('password')
                 
                 if not username or not password:
-                    return jsonify({'status': 'error', 'message': 'Missing credentials'}), 400
-                    
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Missing credentials'
+                    }), 400
+                
                 if self._validate_credentials(username, password):
                     session.permanent = True
                     token = self._generate_token(username)
                     session['token'] = token
                     return jsonify({
                         'status': 'success',
-                        'token': token  # Token im Response senden
+                        'redirect': url_for('index')
                     })
                     
-                return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
-                
-            except Exception as e:
-                logger.error(f"Login error: {e}")
-                return jsonify({'status': 'error', 'message': str(e)}), 500
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid credentials'
+                }), 401
 
         @app.route('/logout')
         def logout():
