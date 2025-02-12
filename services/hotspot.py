@@ -136,6 +136,8 @@ rsn_pairwise=CCMP
             # Reset wlan0
             subprocess.run(["sudo", "ip", "link", "set", "dev", "wlan0", "down"], check=False)
             subprocess.run(["sudo", "ip", "addr", "flush", "dev", "wlan0"], check=False)
+            subprocess.run(["sudo", "nmcli", "radio", "wifi", "on"], check=False)
+            subprocess.run(["sudo", "nmcli", "device", "wifi", "rescan"], check=False)
             
             # Reset iptables
             subprocess.run(["sudo", "iptables", "-F"], check=False)
