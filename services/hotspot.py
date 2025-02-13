@@ -2,6 +2,8 @@ import subprocess
 import random
 import string
 import logging
+import RPi.GPIO as GPIO
+import threading
 import time
 import os
 from pathlib import Path
@@ -18,6 +20,32 @@ class HotspotService:
         self.active = False
         self.dnsmasq_conf_path = "/tmp/netgear-dnsmasq.conf"
         self.hostapd_conf_path = "/tmp/netgear-hostapd.conf"
+        self.button_pin = self.config.get('hotspot_button_pin', 18)  # Default GPIO 18
+        self.timeout_duration = 300  # 5 minutes in seconds
+        self._timeout_timer = None
+        self._setup_gpio()
+
+    def _setup_gpio(self):
+        """Setup GPIO for button input"""
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(self.button_pin, GPIO.FALLING, 
+                            callback=self._button_callback,
+                            bouncetime=300)
+
+    def _button_callback(self, channel):
+        """Handle button press"""
+        if not self.active:
+            self.setup_hotspot()
+        else:
+            self._reset_timeout()
+
+    def _reset_timeout(self):
+        """Reset the timeout timer"""
+        if self._timeout_timer:
+            self._timeout_timer.cancel()
+        self._timeout_timer = threading.Timer(self.timeout_duration, self.cleanup)
+        self._timeout_timer.start()
 
     def _generate_ssid(self) -> str:
         """Generate a simple SSID"""
@@ -110,9 +138,14 @@ rsn_pairwise=CCMP
                 "-j", "ACCEPT"
             ], check=True)
 
-            self.active = True
-            logger.info(f"Hotspot started with SSID: {self.ssid}")
-            return True
+            success = True
+
+            if success:
+                self.active = True
+                self._reset_timeout()  # Start timeout timer
+                logger.info(f"Hotspot started with SSID: {self.ssid}")
+                return True
+            return False
 
         except Exception as e:
             logger.error(f"Error setting up hotspot: {e}")
@@ -121,6 +154,10 @@ rsn_pairwise=CCMP
     def cleanup(self) -> bool:
         """Clean up hotspot configuration"""
         try:
+            if self._timeout_timer:
+                self._timeout_timer.cancel()
+            
+            success = True
             # Stop services
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
             subprocess.run(["sudo", "systemctl", "stop", "hostapd"], check=False)
@@ -150,7 +187,7 @@ rsn_pairwise=CCMP
             time.sleep(2)
 
             self.active = False
-            return True
+            return success
 
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
@@ -187,24 +224,26 @@ rsn_pairwise=CCMP
         """Main service loop"""
         retry_count = 0
         max_retries = 3
-
-        while not self._should_stop:
-            if not self.setup_hotspot():
-                retry_count += 1
-                if retry_count >= max_retries:
-                    logger.error("Max retries reached, exiting...")
-                    break
-                logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
-                time.sleep(30)
-                continue
-
-            retry_count = 0  # Reset retry count on successful setup
-
-            # Main monitoring loop
+        try:
+                
             while not self._should_stop:
-                if not self.is_active():
-                    logger.warning("Hotspot connection lost, restarting...")
-                    break
-                time.sleep(10)
+                if not self.setup_hotspot():
+                    retry_count += 1
+                    if retry_count >= max_retries:
+                        logger.error("Max retries reached, exiting...")
+                        break
+                    logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
+                    time.sleep(30)
+                    continue
 
-        self.cleanup()
+                retry_count = 0  # Reset retry count on successful setup
+
+            if self.setup_hotspot():
+                # Main monitoring loop
+                while not self._should_stop:
+                    time.sleep(1)
+            
+        except Exception as e:
+            logger.error(f"Error in hotspot service: {e}")
+        finally:
+            GPIO.cleanup()

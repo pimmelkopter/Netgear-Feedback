@@ -32,17 +32,20 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 class PortCache:
     """Simple thread-safe cache for port information"""
     def __init__(self):
+        self._lock = threading.Lock()
         self._cache = {}
         self._ready = threading.Event()
         
     def update(self, new_data):
         """Update cache with new port data"""
-        self._cache = new_data.copy()
+        with self._lock:
+            self._cache = new_data.copy()
         self._ready.set()  # Signal that initial data is available
         
     def get(self):
         """Get current cache contents"""
-        return self._cache.copy()
+        with self._lock:
+            return self._cache.copy()
         
     def wait_ready(self, timeout=None):
         """Wait until cache has initial data"""

@@ -50,6 +50,8 @@
   "port_stats": true,
   "update_interval": 5,
   "_comment_port_stats": "if false only vlan-color will be shown",
+  "locked_ports": [23, 24],  
+  "hotspot_button_pin": 23,  
 
   "_comment3": "VLAN Colors",
   "default_vlan_color": "0,0,255",

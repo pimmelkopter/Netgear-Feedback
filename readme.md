@@ -18,10 +18,10 @@
 - **Fixed VLAN Colors**: Alternatively, it can work with predefined VLAN colors.
 - **Port Statistics**: Updates port (link and POE) status at a configurable interval (default: 5 seconds).
 - **VLAN Updates**: Occur every 30 seconds or when updated via the web GUI.
+- **Hotspot Timeout**: Hotspot will turn off after 5 minutes - right now this is hardcoded into hotspot.py
 
 **Upcoming Features:**
 - Support for multiple switches on the network.
-- Security enhancements – e.g., auto-off for the hotspot after a timeout.
 - Porting to ESP32 with an Ethernet interface.
 
 > **Note:** Although most of the code was written with the help of chatbots, I have invested a significant amount of my free time in this project. If you wish to use the code commercially, please send me an email.

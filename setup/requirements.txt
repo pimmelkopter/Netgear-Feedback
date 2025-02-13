@@ -13,6 +13,7 @@ cachetools
 
 # Hardware
 rpi-ws281x
+RPi.GPIO
 
 # Network Management
 python-networkmanager

@@ -122,3 +122,13 @@ class Config:
     @property
     def scan_range_end(self) -> int:
         return int(self._config.get('scan_range_end', 160))
+    
+    @property
+    def locked_ports(self) -> list:
+        """Get list of locked ports that cannot be modified via web interface"""
+        return self._config.get('locked_ports', [])
+
+    @property
+    def hotspot_button_pin(self) -> int:
+        """Get GPIO pin number for hotspot control button"""
+        return int(self._config.get('hotspot_button_pin', 18))

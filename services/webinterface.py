@@ -33,10 +33,7 @@ class WebService:
                    template_folder=self._get_template_dir(),
                    static_folder=self._get_static_dir())
         
-        app.config['SECRET_KEY'] = self.config.get('jwt_secret', 'default_secret_key')
-        app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
         app.config['TEMPLATES_AUTO_RELOAD'] = True
-
         self._register_routes(app)
         return app
 
@@ -71,7 +68,6 @@ class WebService:
         """Register all application routes"""
         
         @app.route('/')
-        @self.login_required
         def index():
             try:
                 port_vlans = self._get_port_vlans()
@@ -86,7 +82,6 @@ class WebService:
                     pass
 
                 return render_template('index.html',
-                    show_login=False,
                     port_vlans=port_vlans,
                     vlan_colors=vlan_colors,
                     vlan_names=vlan_names,
@@ -94,45 +89,6 @@ class WebService:
             except Exception as e:
                 logger.error(f"Error rendering index: {e}")
                 return render_template('error.html', error=str(e))
-
-        @app.route('/login', methods=['GET', 'POST'])
-        def login():
-            if request.method == 'GET':
-                if session.get('token'):
-                    try:
-                        jwt.decode(session['token'], self.app.config['SECRET_KEY'], algorithms=["HS256"])
-                        return redirect(url_for('index'))
-                    except jwt.InvalidTokenError:
-                        session.clear()
-                return render_template('index.html', show_login=True)
-            if request.method == 'POST':
-                username = request.form.get('username')
-                password = request.form.get('password')
-                
-                if not username or not password:
-                    return jsonify({
-                        'status': 'error',
-                        'message': 'Missing credentials'
-                    }), 400
-                
-                if self._validate_credentials(username, password):
-                    session.permanent = True
-                    token = self._generate_token(username)
-                    session['token'] = token
-                    return jsonify({
-                        'status': 'success',
-                        'redirect': url_for('index')
-                    })
-                    
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Invalid credentials'
-                }), 401
-
-        @app.route('/logout')
-        def logout():
-            session.clear()
-            return redirect(url_for('login'))
 
         @app.route('/api/status')
         @self.login_required
@@ -156,7 +112,6 @@ class WebService:
                 return jsonify({'error': str(e)}), 500
 
         @app.route('/api/switch/port/<int:port_id>', methods=['POST'])
-        @self.login_required
         def update_port(port_id):
             try:
                 data = request.get_json()
@@ -179,6 +134,13 @@ class WebService:
                         'status': 'error',
                         'message': f'Invalid VLAN ID: {vlan_id}'
                     }), 400
+
+                # Check if port is locked
+                if port_id in self.config.get('locked_ports', []):
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Port is locked'
+                    }), 403
 
                 switch_api = self._get_switch_api()
                 if switch_api.set_port_vlan(port_id, vlan_id):
@@ -206,7 +168,6 @@ class WebService:
                 }), 500
             
         @app.route('/api/refresh', methods=['POST'])
-        @self.login_required
         def refresh_data():
             try:
                 self._invalidate_cache()
@@ -227,7 +188,6 @@ class WebService:
                 }), 500
             
         @app.route('/api/switch/backup/restore', methods=['POST'])
-        @self.login_required
         def restore_backup():
             try:
                 switch_api = self._get_switch_api()
@@ -245,7 +205,6 @@ class WebService:
                 }), 500
 
         @app.route('/api/switch/reboot', methods=['POST'])
-        @self.login_required
         def reboot_switch():
             try:
                 switch_api = self._get_switch_api()

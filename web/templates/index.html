@@ -242,12 +242,12 @@
 
 <script>
 let state = {
-    isLoggedIn: false,
     ports: {},       // { portId: vlanId }
     vlans: {},       // { vlanId: name }
     vlanColors: {},  // { vlanId: color }
     selectedVlan: null,
-    pendingChanges: new Map()
+    pendingChanges: new Map(),
+    lockedPorts: new Set() // Set of locked port IDs
 };
 
 // DOM Elements
@@ -274,49 +274,10 @@ function debounce(func, wait) {
 document.addEventListener('DOMContentLoaded', () => {
     // Add resize listener for responsive port layout
     window.addEventListener('resize', debounce(() => {
-        if (state.isLoggedIn) {
             renderPorts();
-        }
     }, 250));
-    // Initially hide app container and show login
-    loginContainer.classList.remove('hidden');
-    appContainer.classList.add('hidden');
-
-    // Check existing session
-    checkSession().then(loggedIn => {
-        if (loggedIn) {
-            state.isLoggedIn = true;
-            showMainApp();
-            loadData();
-        }
-    });
-
-    // Login form handler
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        
-        try {
-            const response = await fetch('/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams(formData)
-            });
-            
-            const data = await response.json();
-        
-            if (data.status === 'success') {
-                state.isLoggedIn = true;
-                showMainApp();
-                loadData();
-            }else {
-            showLoginError(data.message || 'Login failed');
-            }
-        } catch (error) {
-        showLoginError('Login failed: ' + error.message);
-        }
-    });
-
+    showMainApp();
+    loadData();
 
     // Apply/Cancel handlers
     document.getElementById('apply-btn').addEventListener('click', applyChanges);
@@ -353,6 +314,7 @@ async function loadData() {
     showLoading();
     try {
         const response = await fetch('/api/refresh', { method: 'POST' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         
         state.ports = data.port_vlans;
@@ -362,7 +324,7 @@ async function loadData() {
         renderPorts();
         renderVlans();
     } catch (error) {
-        console.error('Failed to load data:', error);
+        showErrorToast('Failed to load data: ' + error.message);
     } finally {
         hideLoading();
     }
@@ -419,19 +381,23 @@ function renderPorts() {
 // Helper function to create port elements
 function createPortElement(portId, vlanId) {
     const isPending = state.pendingChanges.has(portId);
+    const isLocked = state.lockedPorts.has(portId);
     const displayVlanId = isPending ? state.pendingChanges.get(portId) : vlanId;
         const color = state.vlanColors[displayVlanId] || '#ffffff';
         const vlanName = state.vlans[displayVlanId] || `VLAN ${displayVlanId}`;
         
         const portEl = document.createElement('button');
-        portEl.className = `port-btn ${isPending ? 'pending-change' : ''}`;
+        portEl.className = `port-btn ${isPending ? 'pending-change' : ''} ${isLocked ? 'locked' : ''}`;
         portEl.style.backgroundColor = color;
+        portEl.disabled = isLocked;
         portEl.innerHTML = `
-            <div class="font-bold">Port ${portId}</div>
+            <div class="font-bold">Port ${portId}${isLocked ? ' 🔒' : ''}</div>
             <div class="text-sm">${vlanName}</div>
         `;
         
-    portEl.addEventListener('click', () => handlePortClick(portId));
+        if (!isLocked) {
+            portEl.addEventListener('click', () => handlePortClick(portId));
+        }
     return portEl;
 }
 
