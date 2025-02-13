@@ -68,14 +68,6 @@ class HotspotService:
             logger.info("Button pressed - resetting timeout")
             self._reset_timeout()
 
-
-    def _reset_timeout(self):
-        """Reset the timeout timer"""
-        if self._timeout_timer:
-            self._timeout_timer.cancel()
-        self._timeout_timer = threading.Timer(self.timeout_duration, self.cleanup)
-        self._timeout_timer.start()
-
     def _generate_ssid(self) -> str:
         """Generate a simple SSID"""
         base = "NETGEAR-CONFIG-"
@@ -190,7 +182,9 @@ rsn_pairwise=CCMP
         if self._timeout_timer:
             self._timeout_timer.cancel()
         self._timeout_timer = threading.Timer(self.timeout_duration, self.cleanup)
+        self._timeout_timer.daemon = True  # Make the timer a daemon thread
         self._timeout_timer.start()
+        logger.info(f"Timeout timer reset. Will cleanup in {self.timeout_duration} seconds")
 
     def cleanup(self) -> bool:
         """Clean up hotspot configuration and GPIO"""
@@ -278,25 +272,31 @@ rsn_pairwise=CCMP
         """Main service loop"""
         retry_count = 0
         max_retries = 3
-                
+        
         while not self._should_stop:
             if not self.setup_hotspot():
                 retry_count += 1
                 if retry_count >= max_retries:
                     logger.error("Max retries reached, exiting...")
-                    break
+                    return
                 logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
                 time.sleep(30)
                 continue
-
-            retry_count = 0  # Reset retry count on successful setup
-
-        if self.setup_hotspot():
-            # Main monitoring loop
-            while not self._should_stop:
+            
+            # Reset retry count on successful setup
+            retry_count = 0
+            
+            # Monitor the hotspot while it's running
+            while not self._should_stop and self.is_active():
                 time.sleep(1)
-            if not self.is_active() and self.active:
-                logger.warning("Hotspot connection lost")
+                
+            # If we get here, either _should_stop is True or the hotspot became inactive
+            if not self._should_stop and self.active:
+                logger.warning("Hotspot connection lost - attempting restart")
                 self.cleanup()
-        else:
-            logger.error("Initial hotspot setup failed")
+                # Continue main loop to attempt restart
+            else:
+                # Clean shutdown requested
+                logger.info("Shutdown requested, cleaning up...")
+                self.cleanup()
+                break
