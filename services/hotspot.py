@@ -34,7 +34,11 @@ class HotspotService:
         """Setup GPIO for button input with proper cleanup"""
         try:
             # Cleanup any existing GPIO settings for this pin
-            GPIO.cleanup(self.button_pin)
+            if self.button_pin is not None:
+                try:
+                    GPIO.cleanup(self.button_pin)
+                except:
+                    pass
             
             # Setup GPIO
             GPIO.setmode(GPIO.BCM)
@@ -58,9 +62,12 @@ class HotspotService:
     def _button_callback(self, channel):
         """Handle button press"""
         if not self.active:
+            logger.info("Button pressed - starting hotspot")
             self.setup_hotspot()
         else:
+            logger.info("Button pressed - resetting timeout")
             self._reset_timeout()
+
 
     def _reset_timeout(self):
         """Reset the timeout timer"""
@@ -115,7 +122,13 @@ rsn_pairwise=CCMP
     def setup_hotspot(self) -> bool:
         """Setup WiFi hotspot with DHCP and DNS"""
         try:
-            # Stop potentially running services
+            # Nur fortfahren, wenn der Hotspot nicht bereits aktiv ist
+            if self.active:
+                return True
+
+            logger.info("Setting up hotspot...")
+            
+            # Existierende Dienste stoppen
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
             subprocess.run(["sudo", "systemctl", "stop", "hostapd"], check=False)
             subprocess.run(["sudo", "killall", "dnsmasq"], check=False)
@@ -160,24 +173,37 @@ rsn_pairwise=CCMP
                 "-j", "ACCEPT"
             ], check=True)
 
-            success = True
-
-            if success:
-                self.active = True
-                self._reset_timeout()  # Start timeout timer
-                logger.info(f"Hotspot started with SSID: {self.ssid}")
-                return True
-            return False
+            self.active = True
+            logger.info(f"Hotspot started with SSID: {self.ssid}")
+            
+            # Timer für Auto-Shutdown starten
+            self._reset_timeout()
+            
+            return True
 
         except Exception as e:
             logger.error(f"Error setting up hotspot: {e}")
             return False
 
+    def _reset_timeout(self):
+        """Reset oder starte den Timeout-Timer"""
+        if self._timeout_timer:
+            self._timeout_timer.cancel()
+        self._timeout_timer = threading.Timer(self.timeout_duration, self.cleanup)
+        self._timeout_timer.start()
+
     def cleanup(self) -> bool:
         """Clean up hotspot configuration and GPIO"""
         try:
+            if not self.active:
+                return True
+
+            logger.info("Cleaning up hotspot...")
+                
+            # Timer stoppen
             if self._timeout_timer:
                 self._timeout_timer.cancel()
+                self._timeout_timer = None
 
             if self.button_pin is not None:
                 try:
@@ -185,7 +211,6 @@ rsn_pairwise=CCMP
                 except:
                     pass
             
-            success = True
             # Stop services
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
             subprocess.run(["sudo", "systemctl", "stop", "hostapd"], check=False)
@@ -215,7 +240,8 @@ rsn_pairwise=CCMP
             time.sleep(2)
 
             self.active = False
-            return success
+            logger.info("Hotspot cleaned up")
+            return True
 
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
@@ -269,9 +295,9 @@ rsn_pairwise=CCMP
             if self.setup_hotspot():
                 # Main monitoring loop
                 while not self._should_stop:
-                    time.sleep(1)
-            
-        except Exception as e:
-            logger.error(f"Error in hotspot service: {e}")
-        finally:
-            GPIO.cleanup()
+                time.sleep(1)
+                if not self.is_active() and self.active:
+                    logger.warning("Hotspot connection lost")
+                    self.cleanup()
+        else:
+            logger.error("Initial hotspot setup failed")
