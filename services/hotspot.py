@@ -193,6 +193,7 @@ rsn_pairwise=CCMP
                 return True
 
             logger.info("Cleaning up hotspot...")
+            self.intentional_shutdown = True
                 
             # Timer stoppen
             if self._timeout_timer:
@@ -272,6 +273,7 @@ rsn_pairwise=CCMP
         """Main service loop"""
         retry_count = 0
         max_retries = 3
+        intentional_shutdown = False
         
         while not self._should_stop:
             if not self.setup_hotspot():
@@ -285,13 +287,14 @@ rsn_pairwise=CCMP
             
             # Reset retry count on successful setup
             retry_count = 0
+            intentional_shutdown = False
             
             # Monitor the hotspot while it's running
             while not self._should_stop and self.is_active():
                 time.sleep(1)
                 
             # If we get here, either _should_stop is True or the hotspot became inactive
-            if not self._should_stop and self.active:
+            if not self._should_stop and self.active and not intentional_shutdown:
                 logger.warning("Hotspot connection lost - attempting restart")
                 self.cleanup()
                 # Continue main loop to attempt restart

@@ -20,6 +20,9 @@ class SwitchAPI:
         self.token = None
         self.session = self._create_session()
         self.progress_callback = progress_callback
+        self._port_config_cache = {}
+        self._cache_timeout = 5  # seconds
+        self._last_cache_update = 0
 
     def scan_network(self, subnet_prefix: str, start: int, end: int) -> str:
         total = end - start + 1
@@ -146,20 +149,36 @@ class SwitchAPI:
             raise ValueError(f"Invalid VLAN ID: {vlan_id}")
 
         try:
-            # Get current config
-            url = f"{self.base_url}/swcfg_port?portid={port_id}"
-            response = self.session.get(url, timeout=10)
-            data = self._handle_response(response)
+            # Use cached port config if available and recent
+            port_config = None
+            cache_age = time.time() - self._last_cache_update
+            
+            if port_id in self._port_config_cache and cache_age < self._cache_timeout:
+                port_config = self._port_config_cache[port_id]
+            else:
+                # Get current config
+                url = f"{self.base_url}/swcfg_port?portid={port_id}"
+                response = self.session.get(url, timeout=10)
+                port_config = self._handle_response(response)
+                
+                # Update cache
+                self._port_config_cache[port_id] = port_config
+                self._last_cache_update = time.time()
 
-            if "switchPortConfig" not in data:
-                raise SwitchAPIError(f"Unexpected port data structure: {data}")
+            if "switchPortConfig" not in port_config:
+                raise SwitchAPIError(f"Unexpected port data structure: {port_config}")
 
             # Update VLAN
-            data["switchPortConfig"]["portVlanId"] = vlan_id
+            port_config["switchPortConfig"]["portVlanId"] = vlan_id
 
             # Send updated config
-            response = self.session.post(url, json=data, timeout=10)
+            url = f"{self.base_url}/swcfg_port?portid={port_id}"
+            response = self.session.post(url, json=port_config, timeout=10)
             self._handle_response(response)
+
+            # Clear cache for this port
+            if port_id in self._port_config_cache:
+                del self._port_config_cache[port_id]
 
             if save_config:
                 return self.save_config()
@@ -254,9 +273,15 @@ class SwitchAPI:
     def get_port_info(self, port_id: int = 0) -> Optional[Dict[str, Any]]:
         """
         Get complete info for specific port or all ports.
-        Returns list of port information dictionaries.
+        Uses caching to reduce API calls.
         """
         try:
+            cache_age = time.time() - self._last_cache_update
+            
+            # If requesting all ports and cache is valid, use cache
+            if port_id == 0 and cache_age < self._cache_timeout and self._port_config_cache:
+                return list(self._port_config_cache.values())
+
             # Get port stats first
             port_stats = self.get_port_stats(port_id)
             if not port_stats:
@@ -266,7 +291,16 @@ class SwitchAPI:
             if port_id > 0:
                 if not port_stats:
                     return None
-                vlan_id = self.get_port_vlan_info(port_id)
+                    
+                # Use cached VLAN info if available and recent
+                vlan_id = None
+                if port_id in self._port_config_cache and cache_age < self._cache_timeout:
+                    port_config = self._port_config_cache[port_id]
+                    vlan_id = port_config.get("switchPortConfig", {}).get("portVlanId")
+                
+                if vlan_id is None:
+                    vlan_id = self.get_port_vlan_info(port_id)
+                    
                 port_stats[0]["vlans"] = [vlan_id if vlan_id is not None else 1]
                 return port_stats
 
@@ -279,7 +313,16 @@ class SwitchAPI:
 
             # Get VLAN info for each port
             for curr_port_id in port_dict:
-                vlan_id = self.get_port_vlan_info(curr_port_id)
+                vlan_id = None
+                
+                # Use cached VLAN info if available and recent
+                if curr_port_id in self._port_config_cache and cache_age < self._cache_timeout:
+                    port_config = self._port_config_cache[curr_port_id]
+                    vlan_id = port_config.get("switchPortConfig", {}).get("portVlanId")
+                
+                if vlan_id is None:
+                    vlan_id = self.get_port_vlan_info(curr_port_id)
+                    
                 port_dict[curr_port_id]["vlans"] = [vlan_id if vlan_id is not None else 1]
                 time.sleep(0.04)  # Small delay between VLAN queries
 
@@ -288,3 +331,8 @@ class SwitchAPI:
         except Exception as e:
             logger.error(f"Error getting port info: {e}")
             raise SwitchAPIError(f"Failed to get port info: {e}")
+            
+    def clear_cache(self):
+        """Clear the port configuration cache"""
+        self._port_config_cache.clear()
+        self._last_cache_update = 0

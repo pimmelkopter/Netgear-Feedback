@@ -326,10 +326,16 @@ function hideLoading() {
     document.getElementById('loading-overlay').classList.add('hidden');
 }
 
-async function loadData() {
+async function loadData(retryCount = 3) {
     showLoading();
     try {
-        const response = await fetch('/api/refresh', { method: 'POST' });
+        for (let attempt = 1; attempt <= retryCount; attempt++) {
+            try {
+                const response = await fetch('/api/refresh', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         
@@ -339,6 +345,12 @@ async function loadData() {
         
         renderPorts();
         renderVlans();
+                return;  // Success, exit function
+            } catch (error) {
+                if (attempt === retryCount) throw error;  // Last attempt, propagate error
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));  // Exponential backoff
+            }
+        }
     } catch (error) {
         showErrorToast('Failed to load data: ' + error.message);
     } finally {
@@ -492,22 +504,30 @@ function updateStatus() {
 async function applyChanges() {
     showLoading();
     try {
-        const changes = Array.from(state.pendingChanges.entries());
-        
-        for (const [portId, vlanId] of changes) {
-            const response = await fetch(`/api/switch/port/${portId}`, {
+        // Convert pending changes to array format for batch processing
+        const changes = Array.from(state.pendingChanges.entries()).map(([portId, vlanId]) => ({
+            portId: parseInt(portId),
+            vlanId: parseInt(vlanId)
+        }));
+
+        // Send all changes in one request
+        const response = await fetch('/api/switch/ports/batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ vlan: vlanId })
+            body: JSON.stringify({ changes })
             });
             
-            if (!response.ok) throw new Error('Update failed');
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to apply changes');
         }
         
         state.pendingChanges.clear();
-        await loadData();
+        await loadData();  // Only reload data once after all changes
         updateStatus();
     } catch (error) {
+        // Show error message but don't clear pending changes
+        // This allows the user to retry the operation
         alert('Error applying changes: ' + error.message);
     } finally {
         hideLoading();

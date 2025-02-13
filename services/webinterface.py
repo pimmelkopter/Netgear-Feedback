@@ -111,6 +111,88 @@ class WebService:
                 logger.error(f"Error getting status: {e}")
                 return jsonify({'error': str(e)}), 500
 
+        @app.route('/api/switch/ports/batch', methods=['POST'])
+        def update_ports_batch():
+            try:
+                data = request.get_json()
+                changes = data.get('changes', [])
+                
+                if not changes:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'No changes provided'
+                    }), 400
+
+                # Validate all changes first
+                for change in changes:
+                    port_id = change.get('portId')
+                    vlan_id = change.get('vlanId')
+                    
+                    if not port_id or not vlan_id:
+                        return jsonify({
+                            'status': 'error',
+                            'message': 'Invalid change format'
+                        }), 400
+                        
+                    if not 1 <= port_id <= self.config.port_count:
+                        return jsonify({
+                            'status': 'error',
+                            'message': f'Invalid port ID: {port_id}'
+                        }), 400
+                        
+                    if not 1 <= vlan_id <= 4094:
+                        return jsonify({
+                            'status': 'error',
+                            'message': f'Invalid VLAN ID: {vlan_id}'
+                        }), 400
+
+                    # Check if port is locked
+                    if port_id in self.config.get('locked_ports', []):
+                        return jsonify({
+                            'status': 'error',
+                            'message': f'Port {port_id} is locked'
+                        }), 403
+
+                # Get switch API instance once for all changes
+                switch_api = self._get_switch_api()
+                
+                # Apply all changes without saving config after each one
+                for change in changes:
+                    port_id = change['portId']
+                    vlan_id = change['vlanId']
+                    
+                    if not switch_api.set_port_vlan(port_id, vlan_id, save_config=False):
+                        return jsonify({
+                            'status': 'error',
+                            'message': f'Failed to update port {port_id}'
+                        }), 500
+
+                # Save config once after all changes
+                if not switch_api.save_config():
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Failed to save configuration'
+                    }), 500
+
+                self._invalidate_cache()
+                # Trigger a single port info update after all changes
+                self.switch_monitor.trigger_port_update()
+                
+                return jsonify({'status': 'success'})
+                        
+            except SwitchAPIError as e:
+                logger.error(f"Switch API error in batch update: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e)
+                }), 503
+            except Exception as e:
+                logger.error(f"Unexpected error in batch update: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Internal server error'
+                }), 500
+
         @app.route('/api/switch/port/<int:port_id>', methods=['POST'])
         def update_port(port_id):
             try:
