@@ -20,18 +20,40 @@ class HotspotService:
         self.active = False
         self.dnsmasq_conf_path = "/tmp/netgear-dnsmasq.conf"
         self.hostapd_conf_path = "/tmp/netgear-hostapd.conf"
-        self.button_pin = self.config.get('hotspot_button_pin', 18)  # Default GPIO 18
-        self.timeout_duration = 300  # 5 minutes in seconds
+        self.button_pin = self.config.get('hotspot_button_pin', 23)
+        self.timeout_duration = self.config.get('hotspot_timeout', 300)  # 5 minutes in seconds
         self._timeout_timer = None
-        self._setup_gpio()
+        
+        try:
+            self._setup_gpio()
+        except Exception as e:
+            logger.warning(f"GPIO setup failed: {e}. Running without button support.")
+            self.button_pin = None
 
     def _setup_gpio(self):
-        """Setup GPIO for button input"""
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(self.button_pin, GPIO.FALLING, 
-                            callback=self._button_callback,
-                            bouncetime=300)
+        """Setup GPIO for button input with proper cleanup"""
+        try:
+            # Cleanup any existing GPIO settings for this pin
+            GPIO.cleanup(self.button_pin)
+            
+            # Setup GPIO
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.button_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            
+            # Add event detection with try/except
+            try:
+                GPIO.add_event_detect(self.button_pin, GPIO.FALLING, 
+                                    callback=self._button_callback,
+                                    bouncetime=300)
+            except RuntimeError:
+                # If event detection fails, try removing it first
+                GPIO.remove_event_detect(self.button_pin)
+                GPIO.add_event_detect(self.button_pin, GPIO.FALLING, 
+                                    callback=self._button_callback,
+                                    bouncetime=300)
+        except Exception as e:
+            logger.error(f"GPIO setup error: {e}")
+            raise
 
     def _button_callback(self, channel):
         """Handle button press"""
@@ -152,10 +174,16 @@ rsn_pairwise=CCMP
             return False
 
     def cleanup(self) -> bool:
-        """Clean up hotspot configuration"""
+        """Clean up hotspot configuration and GPIO"""
         try:
             if self._timeout_timer:
                 self._timeout_timer.cancel()
+
+            if self.button_pin is not None:
+                try:
+                    GPIO.cleanup(self.button_pin)
+                except:
+                    pass
             
             success = True
             # Stop services

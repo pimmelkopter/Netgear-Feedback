@@ -132,3 +132,8 @@ class Config:
     def hotspot_button_pin(self) -> int:
         """Get GPIO pin number for hotspot control button"""
         return int(self._config.get('hotspot_button_pin', 18))
+    
+    @property
+    def hotspot_timeout(self) -> str:
+        """ Get hotspot timeout"""
+        return str(self._config.get('hotspot_timeout', 300))

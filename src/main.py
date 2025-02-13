@@ -455,16 +455,18 @@ class ServiceManager:
 
 def main():
     """Main entry point"""
-    #TODO manager = None initalisierung?
+    manager = None
     try:
         manager = ServiceManager()
         manager.start_services()
     except KeyboardInterrupt:
         logger.info("Received shutdown signal")
-        manager.cleanup()
+        if manager:
+            manager.cleanup()
     except Exception as e:
         logger.critical(f"Fatal error in main: {e}")
-        manager.cleanup()
+        if manager:
+            manager.cleanup()
         sys.exit(1)
 
 if __name__ == "__main__":
