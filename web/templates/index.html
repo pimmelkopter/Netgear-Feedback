@@ -78,6 +78,22 @@
             overflow: hidden;
         }
         
+        /* Style for locked ports */
+        .port-btn.locked {
+            cursor: not-allowed;
+            opacity: 0.9;
+        }
+
+        /* Text color classes */
+        .text-white {
+            color: #ffffff;
+        }
+
+        /* Button disabled state */
+        .port-btn:disabled {
+            pointer-events: none;
+        }
+
         .port-btn div, .vlan-btn {
             white-space: nowrap;
             overflow: hidden;
@@ -383,21 +399,30 @@ function createPortElement(portId, vlanId) {
     const isPending = state.pendingChanges.has(portId);
     const isLocked = state.lockedPorts.has(portId);
     const displayVlanId = isPending ? state.pendingChanges.get(portId) : vlanId;
-        const color = state.vlanColors[displayVlanId] || '#ffffff';
-        const vlanName = state.vlans[displayVlanId] || `VLAN ${displayVlanId}`;
-        
-        const portEl = document.createElement('button');
-        portEl.className = `port-btn ${isPending ? 'pending-change' : ''} ${isLocked ? 'locked' : ''}`;
-        portEl.style.backgroundColor = color;
-        portEl.disabled = isLocked;
-        portEl.innerHTML = `
-            <div class="font-bold">Port ${portId}${isLocked ? ' 🔒' : ''}</div>
-            <div class="text-sm">${vlanName}</div>
-        `;
-        
-        if (!isLocked) {
-            portEl.addEventListener('click', () => handlePortClick(portId));
-        }
+    const color = state.vlanColors[displayVlanId] || '#ffffff';
+    const vlanName = state.vlans[displayVlanId] || `VLAN ${displayVlanId}`;
+    
+    const portEl = document.createElement('button');
+    portEl.className = `port-btn ${isPending ? 'pending-change' : ''} ${isLocked ? 'locked' : ''}`;
+    portEl.style.backgroundColor = color;
+    
+    // Set text color to white if background color is black
+    const isBlack = color.toLowerCase() === '#000000' || color.toLowerCase() === 'rgb(0,0,0)';
+    const textColorClass = isBlack ? 'text-white' : '';
+    
+    // Disable button if port is locked
+    portEl.disabled = isLocked;
+    
+    portEl.innerHTML = `
+        <div class="font-bold ${textColorClass}">Port ${portId}${isLocked ? ' 🔒' : ''}</div>
+        <div class="text-sm ${textColorClass}">${vlanName}</div>
+    `;
+    
+    // Only add click handler if port is not locked
+    if (!isLocked) {
+        portEl.addEventListener('click', () => handlePortClick(portId));
+    }
+    
     return portEl;
 }
 
