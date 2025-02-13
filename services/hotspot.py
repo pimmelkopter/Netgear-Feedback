@@ -278,26 +278,25 @@ rsn_pairwise=CCMP
         """Main service loop"""
         retry_count = 0
         max_retries = 3
-        try:
                 
+        while not self._should_stop:
+            if not self.setup_hotspot():
+                retry_count += 1
+                if retry_count >= max_retries:
+                    logger.error("Max retries reached, exiting...")
+                    break
+                logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
+                time.sleep(30)
+                continue
+
+            retry_count = 0  # Reset retry count on successful setup
+
+        if self.setup_hotspot():
+            # Main monitoring loop
             while not self._should_stop:
-                if not self.setup_hotspot():
-                    retry_count += 1
-                    if retry_count >= max_retries:
-                        logger.error("Max retries reached, exiting...")
-                        break
-                    logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
-                    time.sleep(30)
-                    continue
-
-                retry_count = 0  # Reset retry count on successful setup
-
-            if self.setup_hotspot():
-                # Main monitoring loop
-                while not self._should_stop:
                 time.sleep(1)
-                if not self.is_active() and self.active:
-                    logger.warning("Hotspot connection lost")
-                    self.cleanup()
+            if not self.is_active() and self.active:
+                logger.warning("Hotspot connection lost")
+                self.cleanup()
         else:
             logger.error("Initial hotspot setup failed")
