@@ -1,3 +1,4 @@
+##setup/requirements.txt##
 # Core
 flask
 Werkzeug

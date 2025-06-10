@@ -5,6 +5,9 @@
         },
         {
             "path": "../netgear-feedback-esp32"
+        },
+        {
+            "path": "../_rapha-vscode"
         }
     ],
     "settings": {

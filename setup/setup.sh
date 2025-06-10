@@ -1,3 +1,4 @@
+##setup/setup.sh##
 #!/usr/bin/env bash
 set -euxo pipefail
 
