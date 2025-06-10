@@ -1,6 +1,7 @@
 ##services/config.py##
 from pathlib import Path
 from typing import Dict, Optional, Any
+import threading
 import json
 import logging
 
@@ -8,13 +9,15 @@ logger = logging.getLogger(__name__)
 
 class Config:
     _instance = None
+    _lock = threading.Lock()
     _config: Dict = {}
     _secrets: Dict = {}
     
     def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._load()
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+                cls._load()
         return cls._instance
     
     def get_config(self) -> dict:

@@ -1,0 +1,4 @@
+GPIO 5, 6, 13, 16, 19, 20, 21, 26: Buttons
+GPIO 8, 10, 11: SPI (CS, MOSI, SCLK)
+GPIO 24, 25, 27: Display Control (BL, DC, RST)
+GPIO 18: WS2812 LEDs

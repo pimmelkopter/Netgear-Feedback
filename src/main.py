@@ -8,6 +8,7 @@ from queue import Queue
 from typing import Dict, Any
 from services.config import Config
 from services.hotspot import HotspotService
+from services.buttons import ButtonService
 from services.webinterface import WebService
 from services.switch_api import SwitchAPI, SwitchAPIError
 from services.led import LEDService
@@ -413,9 +414,77 @@ class ServiceManager:
         self.hotspot_service = HotspotService()
         self.switch_monitor = SwitchMonitor()
         self.web_service = WebService(self.switch_monitor, self.hotspot_service)
+        self.button_service = None
         
         # Thread-Management
         self.threads = []
+
+        
+        # Initialize button service with callbacks
+        self._init_button_service()
+    
+    def _init_button_service(self):
+        """Initialize button service with proper callbacks"""
+        try:
+            # Define callback functions
+            def hotspot_callback(action: str):
+                if action == 'activate_new':
+                    self.hotspot_service.activate_with_new_credentials()
+            
+            def display_callback(action: str, data=None):
+                display = self.hotspot_service.display
+                if action == 'wake':
+                    display.set_backlight(True)
+                elif action == 'sleep':
+                    display.clear_display()
+                elif action == 'update_menu':
+                    if data['type'] == 'vlan_menu':
+                        display.show_vlan_menu(
+                            data['port'], data['vlan'], 
+                            data['mode'], data['has_changes']
+                        )
+                    elif data['type'] == 'restore_menu':
+                        display.show_restore_menu(
+                            data['code_entered'], 
+                            data['code_length'],
+                            data['remaining_time']
+                        )
+                elif action == 'show_message':
+                    display.show_message(data)
+                elif action == 'clear_menu':
+                    display.clear_display()
+            
+            def switch_api_callback(action: str, data=None):
+                api = self.switch_monitor.api
+                if not api:
+                    return None
+                    
+                if action == 'get_port_vlans':
+                    # Return current port VLAN mapping
+                    return self.switch_monitor.port_cache.get()
+                elif action == 'set_port_vlans':
+                    # Set multiple port VLANs
+                    for port_id, vlan_id in data.items():
+                        if not api.set_port_vlan(port_id, vlan_id, save_config=False):
+                            return False
+                    return api.save_config()
+                elif action == 'get_restore_code':
+                    return self.config.get('restore_code', 'UP,RIGHT,DOWN,LEFT,PRESS')
+                elif action == 'restore_backup':
+                    if api.restore_backup_via_api():
+                        # Schedule reboot after short delay
+                        threading.Timer(2.0, lambda: api.reboot_switch()).start()
+                        return True
+                    return False
+            
+            self.button_service = ButtonService(
+                hotspot_callback=hotspot_callback,
+                display_callback=display_callback,
+                switch_api_callback=switch_api_callback
+            )
+        except Exception as e:
+            logger.warning(f"Button service initialization failed: {e}")
+            self.button_service = None    
 
     def start_services(self):
         """Start all services"""
@@ -427,6 +496,10 @@ class ServiceManager:
         hotspot_thread.start()
         self.threads.append(hotspot_thread)
         logger.info("Started hotspot service")
+
+        if self.button_service:
+            self.button_service.start()
+            logger.info("Started button service")
 
         # Wait for hotspot to be ready
         time.sleep(5)  # Give hotspot time to set up interfaces
@@ -450,6 +523,8 @@ class ServiceManager:
     def cleanup(self):
         """Cleanup all services"""
         logger.info("Cleaning up services...")
+        if self.button_service:
+            self.button_service.stop()
         self.hotspot_service.cleanup()
         self.switch_monitor.cleanup_and_exit()
 

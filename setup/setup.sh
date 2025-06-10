@@ -142,6 +142,11 @@ set_permissions() {
 
 configure_services() {
     echo_status "Configuring services..."
+
+    # Configure GPIO pull-ups for buttons in /boot/firmware/config.txt
+    if ! grep -q "gpio=6,19,5,26,13,21,20,16=pu" /boot/firmware/config.txt; then
+        echo "gpio=6,19,5,26,13,21,20,16=pu" | sudo tee -a /boot/firmware/config.txt
+    fi
     
     # Konfliktende Dienste deaktivieren
     for service in hostapd dnsmasq; do

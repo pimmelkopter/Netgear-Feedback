@@ -53,6 +53,8 @@
   "locked_ports": [23, 24],  
   "hotspot_button_pin": 23, 
   "hotspot_timeout": 300,
+  "restore_code": "UP,RIGHT,DOWN,LEFT,PRESS",
+  "display_sleep_timeout": 60,
   "_comment_timeout": "in Seconds", 
 
   "_comment3": "VLAN Colors",

@@ -1,3 +1,4 @@
+## setup/dev_tools/git-reset.sh ##
 #!/bin/bash
 set -euo pipefail
 

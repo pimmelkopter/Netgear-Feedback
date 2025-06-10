@@ -9,15 +9,17 @@ import time
 import os
 from pathlib import Path
 from .config import Config
+from .display import DisplayService
 
 logger = logging.getLogger(__name__)
 
 class HotspotService:
     def __init__(self):
         self.config = Config()
+        self.display = DisplayService()
+        self.password = None
         self.ssid = self._generate_ssid()
         self.connection_name = "NetgearAP"
-        self._should_stop = False
         self.active = False
         self.dnsmasq_conf_path = "/tmp/netgear-dnsmasq.conf"
         self.hostapd_conf_path = "/tmp/netgear-hostapd.conf"
@@ -25,6 +27,9 @@ class HotspotService:
         self.timeout_duration = self.config.get('hotspot_timeout', 300)  # 5 minutes in seconds
         self._timeout_timer = None
         
+        # Initialize Display
+        self.display.init_display()
+
         try:
             self._setup_gpio()
         except Exception as e:
@@ -64,7 +69,7 @@ class HotspotService:
         """Handle button press"""
         if not self.active:
             logger.info("Button pressed - starting hotspot")
-            self.setup_hotspot()
+            self.activate_with_new_credentials()
         else:
             logger.info("Button pressed - resetting timeout")
             self._reset_timeout()
@@ -74,6 +79,19 @@ class HotspotService:
         base = "NETGEAR-CONFIG-"
         suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4)) #or for testing suffix = ''.join("test")
         return f"{base}{suffix}"
+    
+    def _generate_password(self) -> str:
+        if self.config.get('fixed_hotspot_password'):
+            return self.config.get('fixed_hotspot_password')
+        else:
+            chars = string.ascii_letters + string.digits
+            return ''.join(random.choices(chars, k=8))
+        
+    def activate_with_new_credentials(self):
+        self.cleanup()
+        self.ssid = self._generate_ssid()
+        self.password = self._generate_password()
+        return self.setup_hotspot()
 
     def _create_dnsmasq_config(self):
         """Create dnsmasq configuration for DHCP and DNS"""
@@ -104,7 +122,7 @@ macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
 wpa=2
-wpa_passphrase={self.config.password}
+wpa_passphrase={self.password}
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
 rsn_pairwise=CCMP
@@ -115,11 +133,10 @@ rsn_pairwise=CCMP
     def setup_hotspot(self) -> bool:
         """Setup WiFi hotspot with DHCP and DNS"""
         try:
-            # Nur fortfahren, wenn der Hotspot nicht bereits aktiv ist
-            if self.active:
-                return True
-
             logger.info("Setting up hotspot...")
+
+            if not self.password:
+                self.password = self._generate_password()
             
             # Existierende Dienste stoppen
             subprocess.run(["sudo", "systemctl", "stop", "dnsmasq"], check=False)
@@ -166,11 +183,14 @@ rsn_pairwise=CCMP
                 "-j", "ACCEPT"
             ], check=True)
 
-            self.active = True
             logger.info(f"Hotspot started with SSID: {self.ssid}")
             
+            # Show QR code on display
+            self.display.show_wifi_qr(self.ssid, self.password)
+
             # Timer für Auto-Shutdown starten
             self._reset_timeout()
+            self.active = True
             
             return True
 
@@ -190,11 +210,9 @@ rsn_pairwise=CCMP
     def cleanup(self) -> bool:
         """Clean up hotspot configuration and GPIO"""
         try:
-            if not self.active:
-                return True
+            self.active = False
 
             logger.info("Cleaning up hotspot...")
-            self.intentional_shutdown = True
                 
             # Timer stoppen
             if self._timeout_timer:
@@ -234,8 +252,8 @@ rsn_pairwise=CCMP
             subprocess.run(["sudo", "nmcli", "connection", "up", "Wired connection 1"], check=False)
 
             time.sleep(2)
+            self.display.cleanup()
 
-            self.active = False
             logger.info("Hotspot cleaned up")
             return True
 
@@ -274,9 +292,12 @@ rsn_pairwise=CCMP
         """Main service loop"""
         retry_count = 0
         max_retries = 3
-        intentional_shutdown = False
         
-        while not self._should_stop:
+        while True:
+            if self.active:
+                time.sleep(1)
+                continue
+
             if not self.setup_hotspot():
                 retry_count += 1
                 if retry_count >= max_retries:
@@ -284,23 +305,5 @@ rsn_pairwise=CCMP
                     return
                 logger.error(f"Failed to start hotspot (attempt {retry_count}/{max_retries}), retrying in 30 seconds...")
                 time.sleep(30)
-                continue
-            
-            # Reset retry count on successful setup
-            retry_count = 0
-            intentional_shutdown = False
-            
-            # Monitor the hotspot while it's running
-            while not self._should_stop and self.is_active():
-                time.sleep(1)
-                
-            # If we get here, either _should_stop is True or the hotspot became inactive
-            if not self._should_stop and self.active and not intentional_shutdown:
-                logger.warning("Hotspot connection lost - attempting restart")
-                self.cleanup()
-                # Continue main loop to attempt restart
             else:
-                # Clean shutdown requested
-                logger.info("Shutdown requested, cleaning up...")
-                self.cleanup()
-                break
+                retry_count = 0

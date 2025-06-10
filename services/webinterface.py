@@ -1,10 +1,7 @@
 ## services/webinterface.py ##
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
-from functools import wraps
-import jwt
+from flask import Flask, render_template, request, jsonify
 import os
 import time
-from datetime import datetime, timedelta
 import logging
 import threading
 from typing import Optional, Dict, Any, Tuple
@@ -49,21 +46,6 @@ class WebService:
             os.path.dirname(__file__), '..', 'web', 'static'
         ))
 
-    def login_required(self, f):
-        """Authentication decorator"""
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            token = session.get('token')
-            if not token:
-                return redirect(url_for('login'))
-            try:
-                jwt.decode(token, self.app.config['SECRET_KEY'], algorithms=["HS256"])
-                return f(*args, **kwargs)
-            except jwt.InvalidTokenError:
-                session.clear()
-                return redirect(url_for('login'))
-        return decorated
-
     def _register_routes(self, app: Flask) -> None:
         """Register all application routes"""
         
@@ -91,7 +73,6 @@ class WebService:
                 return render_template('error.html', error=str(e))
 
         @app.route('/api/status')
-        @self.login_required
         def status():
             try:
                 # Einfache Verbindungsprüfung

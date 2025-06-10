@@ -92,7 +92,6 @@ class LEDService:
         configured_leds_per_port = self.config.get('leds_per_port', 1)
         
         if configured_leds_per_port >= 2:
-            # Multi-LED Mode
             
             # All LEDs except last show VLAN color
             for led_idx in leds[:-1]:
@@ -103,46 +102,19 @@ class LEDService:
             if leds and 0 <= leds[-1] < self.config.led_count:
                 last_led = leds[-1]
                 if speed == 0:
-                    # No link - LED stays black
                     self.strip.setPixelColor(last_led, Color(0,0,0))
                 elif poe:
-                    # POE active: alternate between POE and Speed
-                    if phase % 2 == 0:
-                        self.strip.setPixelColor(last_led, Color(0,0,255))  # POE Blue
-                    else:
-                        # Speed blink sub-phase
-                        self.strip.setPixelColor(last_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
+                    self.strip.setPixelColor(last_led, Color(0,0,255))  # POE active
                 else:
-                    # Just speed blinking, no alternation
-                    self.strip.setPixelColor(last_led, 
-                        self._get_speed_color(speed) if blink_on else Color(0,0,0))
+                    self.strip.setPixelColor(last_led, self._get_speed_color(speed))
 
         else:
-            # Single LED Mode
+            # Single LED Mode - Cycle through VLAN, POE, Speed
             if leds and 0 <= leds[0] < self.config.led_count:
-                first_led = leds[0]
-                
-                if speed == 0:
-                    # No connection - show VLAN color
-                    self.strip.setPixelColor(first_led, Color(*vlan_color))
-                elif poe:
-                    # POE active - 3-way cycle
-                    cycle_position = phase % 3
-                    if cycle_position == 0:
-                        self.strip.setPixelColor(first_led, Color(*vlan_color))
-                    elif cycle_position == 1:
-                        self.strip.setPixelColor(first_led, Color(0,0,255))  # POE
-                    else:
-                        self.strip.setPixelColor(first_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
-                else:
-                    # Just connection - alternate VLAN and speed
-                    if phase % 2 == 0:
-                        self.strip.setPixelColor(first_led, Color(*vlan_color))
-                    else:
-                        self.strip.setPixelColor(first_led, 
-                            self._get_speed_color(speed) if blink_on else Color(0,0,0))
+                color = vlan_color if speed == 0 else (
+                    (0,0,255) if poe and phase %3 == 1 else
+                    self._get_speed_color(speed) if phase % 3 == 2 else vlan_color
+                )
 
     def _get_speed_color(self, speed: int) -> int:
         """Get LED color based on port speed"""
