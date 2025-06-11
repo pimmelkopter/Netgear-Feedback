@@ -42,6 +42,11 @@
 ## 🚀 Installation & Setup
 
 ```bash
+sudo useradd -m -s /bin/bash admin
+sudo usermod -a -G sudo,gpio,spi,i2c,dialout admin
+sudo passwd admin
+su - admin
+
 sudo apt-get update && sudo apt-get install git -y
 git clone https://github.com/pimmelkopter/Netgear-Feedback.git
 cd Netgear-Feedback

@@ -3,7 +3,7 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import logging
 from typing import Optional
-import LCD_1in44
+from .lcd.LCD_1in44 import LCD_1in44
 import time
 import threading
 
