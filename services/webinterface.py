@@ -296,12 +296,12 @@ class WebService:
         return (username == self.config.username and 
                 password == self.config.password)
 
-    def _generate_token(self, username: str) -> str:
-        """Generate JWT token"""
-        return jwt.encode({
-            'user': username,
-            'exp': datetime.utcnow() + timedelta(hours=8)
-        }, self.app.config['SECRET_KEY'])
+    # def _generate_token(self, username: str) -> str:
+    #     """Generate JWT token"""
+    #     return jwt.encode({
+    #         'user': username,
+    #         'exp': datetime.utcnow() + timedelta(hours=8)
+    #     }, self.app.config['SECRET_KEY'])
 
     def _get_switch_api(self) -> SwitchAPI:
         """Get or create SwitchAPI instance with connection check"""
