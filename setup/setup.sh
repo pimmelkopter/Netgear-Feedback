@@ -103,6 +103,9 @@ install_system_packages() {
         python3 \
         python3-pip \
         python3-venv \
+        python3-spidev python3-rpi.gpio \
+        libjpeg-dev zlib1g-dev libopenjp2-7 libtiff5 \
+        libffi-dev libssl-dev \
         git \
         jq \
         dnsmasq \

@@ -3,7 +3,7 @@ import subprocess
 import random
 import string
 import logging
-import gpiozero as GPIO
+import RPi.GPIO as GPIO
 import threading
 import time
 import os

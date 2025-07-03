@@ -1,5 +1,5 @@
 ##services/buttons.py##
-import gpiozero as GPIO
+import RPi.GPIO as GPIO
 import time
 import threading
 import logging

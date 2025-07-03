@@ -20,7 +20,10 @@ venv/
 *copy-bin*
 *esp32*
 ESP32/
+__pycache__/
 "Netgear Feedback.code-workspace"
+requirements-dev.txt
+mock_hardware.py
 
 # Sonstiges
 ToDo

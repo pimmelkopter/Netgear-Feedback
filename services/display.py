@@ -3,7 +3,7 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import logging
 from typing import Optional
-from .lcd.LCD_1in44 import LCD_1in44
+from .lcd import LCD_1in44
 import time
 import threading
 
@@ -19,10 +19,10 @@ class DisplayService:
     def init_display(self):
         """Initialize the LCD display"""
         try:
-            self.lcd = LCD_1in44.LCD()
+            self.lcd = LCD_1in44()
             self.lcd.LCD_Init(LCD_1in44.SCAN_DIR_DFT)
             self.lcd.LCD_Clear()
-            self.set_Backlight(False)
+            self.set_backlight(False)
             self.initialized = True
             return True
         except Exception as e:
@@ -31,7 +31,7 @@ class DisplayService:
             return False
         
     def set_backlight(self, on: bool):
-        with self._backlight_lock:
+        with self.backlight_lock:
             if self.initialized and self.lcd:
                 self.lcd.bl_DutyCycle(100 if on else 0)
                 self.backlight_on = on

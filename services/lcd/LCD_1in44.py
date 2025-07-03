@@ -25,7 +25,7 @@
  # THE SOFTWARE.
  #
 
-from .config import config
+from .config import RaspberryPi
 import time
 import numpy as np
 
@@ -57,7 +57,7 @@ D2U_R2L = 8
 SCAN_DIR_DFT = U2D_R2L
 
 
-class LCD(config.RaspberryPi):
+class LCD(RaspberryPi):
 
 	width = LCD_WIDTH
 	height = LCD_HEIGHT
